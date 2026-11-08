@@ -1,0 +1,10 @@
+{
+  "name": "bb84-simulator",
+  "version": "1.0.0",
+  "private": true,
+  "description": "BB84 kvantumkulcs-szétosztás szimulátor (Kvantuminformatikai alkalmazások, BME VIK, 2026 ősz)",
+  "scripts": {
+    "test": "node --test tests/protocol.test.js",
+    "build": "node tools/build.js"
+  }
+}
