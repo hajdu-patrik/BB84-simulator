@@ -1,0 +1,53 @@
+/* Színek és betűk: a világos és a sötét téma tokenjei. */
+
+:root {
+  color-scheme: light;
+  --bg: #fff;
+  --text: #16191f;
+  --muted: #59616d;
+  --faint: #686f7a;
+  --line: #e3e6ea;
+  --line-strong: #878f9b;
+  --accent: #2152c9;
+  --accent-fill: #2152c9;
+  --accent-hover: #173f9f;
+  --current: #edf2fd;
+  --edit: #f4f6fa;
+  --hover: #dbe5fb;
+  --beam: #c8cdd4;
+  --selection: #d5e1fa;
+  --packet-text: #173f9f;
+  --eve: #c5242b;
+  --eve-fill: #c5242b;
+  --eve-soft: #fbeaeb;
+  --good: #12764a;
+  --good-fill: #12764a;
+  --on-fill: #fff;
+  --ease: cubic-bezier(.22, 1, .36, 1);
+  --font: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --mono: Consolas, "Cascadia Mono", "Courier New", monospace;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0f1319;
+  --text: #e8ebf0;
+  --muted: #a6aeba;
+  --faint: #8b93a0;
+  --line: #2b313b;
+  --line-strong: #6f7886;
+  --accent: #8db0ff;
+  --accent-fill: #2f62dc;
+  --accent-hover: #3f72ec;
+  --current: #1b2740;
+  --edit: #171c25;
+  --hover: #25345a;
+  --beam: #454d5a;
+  --selection: #2c4374;
+  --packet-text: #c4d5ff;
+  --eve: #ff8a8a;
+  --eve-fill: #c5242b;
+  --eve-soft: #3a1c20;
+  --good: #5fd39c;
+  --good-fill: #12764a;
+}

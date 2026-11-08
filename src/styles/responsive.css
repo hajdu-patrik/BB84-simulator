@@ -1,0 +1,94 @@
+/* Keskeny kijelzők (320 px-ig) és az animációk kikapcsolása. */
+
+@media (max-width: 1100px) {
+  .stage { grid-template-columns: minmax(0, 1fr); }
+  .narration { min-height: 0; border-left: 0; border-top: 1px solid var(--line); }
+}
+
+@media (max-width: 900px) {
+  .rail-wrap { overflow: visible; margin: 0; padding: 4px 0 0; }
+  .rail { min-width: 0; grid-template-columns: repeat(9, minmax(0, 1fr)); }
+  .rail::before, .rail::after { top: 13px; }
+  .rail button { min-height: 28px; }
+  .rail button span { display: none; }
+  .rail b { width: 28px; height: 28px; font-size: 12px; }
+  .rail .current b { box-shadow: 0 0 0 3px var(--current); }
+  .rail-label { display: block; margin-top: 8px; color: var(--accent); font-size: 14px; font-weight: 600; text-align: center; font-variant-numeric: tabular-nums; }
+  .rail-wrap:has(.aborted) .rail-label { color: var(--eve); }
+
+  .metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .metric:nth-child(3n + 1) { border-left: 0; }
+  .metric:nth-child(n + 4) { border-top: 1px solid var(--line); }
+  .settings-end { margin-left: 0; }
+}
+
+@media (max-width: 640px) {
+  .wrap { padding-left: 12px; padding-right: 12px; }
+  main.wrap { gap: 12px; padding-top: 12px; }
+
+  .site-head .wrap { gap: 10px; padding-top: 10px; padding-bottom: 10px; }
+  .site-head h1 { font-size: 16px; white-space: nowrap; }
+  .site-head p { display: none; }
+  .mark { width: 30px; height: 30px; }
+
+  select, button { min-height: 44px; }
+  .seg button { min-height: 38px; min-width: 32px; padding: 4px; }
+  button.icon { min-height: 40px; width: 40px; }
+
+  .settings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; padding: 12px; }
+  .settings-end { display: contents; }
+  .settings label:not(.check) { flex-direction: column; align-items: stretch; gap: 2px; color: var(--muted); font-size: 13px; }
+  .settings label:not(.check) select { color: var(--text); font-size: 15px; }
+  .settings .check { gap: 6px; font-size: 14px; }
+  #rate-field { order: 1; }
+  .check { order: 2; }
+  #btn-reroll { order: 3; grid-column: 1 / -1; }
+
+  #bench { padding: 10px; }
+  .narration { padding: 14px; }
+
+  /* A léptetés hüvelykujjnyi távolságban marad görgetéskor is. */
+  .transport {
+    position: sticky;
+    bottom: 0;
+    z-index: 3;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr);
+    grid-template-areas: "back next" "reset phase";
+    gap: 6px;
+    padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
+    background: var(--bg);
+    border-radius: 0 0 12px 12px;
+  }
+
+  #btn-next { grid-area: next; padding: 4px 6px; }
+  #btn-back { grid-area: back; }
+  #btn-phase { grid-area: phase; }
+  #btn-reset { grid-area: reset; }
+  .transport button { min-height: 42px; padding: 4px 6px; font-size: 14px; }
+  .progress { display: none; }
+
+  .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .metric, .metric:nth-child(n) { border-left: 0; }
+  .metric { padding: 10px 12px; }
+  .metric dd { font-size: 19px; }
+  .metric:nth-child(even) { border-left: 1px solid var(--line); }
+  .metric:nth-child(n + 3) { border-top: 1px solid var(--line); }
+  .metric:last-child { grid-column: 1 / -1; }
+  .metric:last-child:nth-child(n) { border-left: 0; }
+
+  .panel-head { padding: 10px 12px; }
+  .panel-body { padding: 10px 12px; }
+
+  #ledger th, #ledger td { width: 30px; min-width: 30px; height: 36px; }
+  #ledger thead th { height: 24px; font-size: 11px; }
+  #ledger th.row { width: 84px; min-width: 84px; max-width: 84px; padding-right: 6px; font-size: 12px; line-height: 1.15; white-space: normal; }
+
+  .key-row { grid-template-columns: 44px minmax(0, 1fr); gap: 2px 8px; }
+  .key-note { grid-column: 2; font-size: 13px; white-space: normal; }
+
+  .site-foot { margin-top: 20px; }
+  .site-foot .wrap { flex-direction: column; }
+}
+
+.no-motion *, .no-motion *::before, .no-motion *::after { animation: none !important; transition: none !important; }

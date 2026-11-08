@@ -1,0 +1,103 @@
+/* Mérőszámok, qubitenkénti táblázat és kulcsok. */
+
+/* Eredmények */
+
+.metrics { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.metric { min-width: 0; padding: 12px 18px; border-left: 1px solid var(--line); }
+.metric:first-child { border-left: 0; }
+.metric dt { color: var(--muted); font-size: 13px; }
+.metric dd { font-size: 21px; font-weight: 600; line-height: 1.3; font-variant-numeric: tabular-nums; transition: color .3s; }
+.metric.bad dd { color: var(--eve); }
+.metric.good dd { color: var(--good); }
+
+.metric dd.meter { position: relative; height: 5px; margin-top: 6px; background: var(--line); border-radius: 3px; }
+.meter i { position: absolute; inset: 0; background: var(--accent); border-radius: 3px; transform: scaleX(0); transform-origin: left; transition: transform .6s var(--ease), background-color .3s; }
+.meter.over i { background: var(--eve); }
+.meter u { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--text); }
+
+/* Táblázat */
+
+.ledger-scroll { overflow-x: auto; }
+
+#ledger { border-collapse: separate; border-spacing: 0; font: 14px var(--mono); }
+
+#ledger th, #ledger td {
+  width: 17px;
+  min-width: 17px;
+  height: 26px;
+  padding: 0;
+  text-align: center;
+  border-bottom: 1px solid var(--line);
+}
+
+#ledger tr:last-child th, #ledger tr:last-child td { border-bottom: 0; }
+
+#ledger thead th { color: var(--muted); font: 400 10px var(--font); letter-spacing: -.03em; }
+
+#ledger th.row {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  width: auto;
+  padding: 0 10px 0 0;
+  background: var(--bg);
+  font: 400 14px var(--font);
+  text-align: left;
+  white-space: nowrap;
+}
+
+#ledger th.row.who-e, #ledger td.who-e { color: var(--eve); }
+
+#ledger td.cur, #ledger thead th.cur { background: var(--current); }
+#ledger td.dim { color: var(--faint); }
+#ledger td.yes { color: var(--good); }
+#ledger td.no { color: var(--faint); }
+#ledger td.sample { color: var(--accent); font-weight: 600; }
+#ledger td.err { background: var(--eve-fill); color: var(--on-fill); font-weight: 600; }
+#ledger td.err-hidden { box-shadow: inset 0 0 0 1.5px var(--eve); color: var(--eve); font-weight: 600; }
+#ledger td.fixed { background: var(--good-fill); color: var(--on-fill); font-weight: 600; }
+#ledger td.edit { background: var(--edit); }
+
+#ledger td button {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  color: inherit;
+  font: inherit;
+  transition: background-color .12s, color .12s;
+}
+
+#ledger td button:hover { background: var(--hover); color: var(--accent); font-weight: 600; }
+#ledger td button:focus-visible { outline-offset: -2px; }
+
+#ledger tr.reveal td:not(:empty) { animation: cell-in .4s var(--ease) both; animation-delay: calc(var(--i) * 7ms); }
+#ledger.sifting td.dim { animation: dim-in .6s ease-out; }
+
+@keyframes cell-in {
+  from { opacity: 0; }
+}
+
+@keyframes dim-in {
+  from { color: var(--text); }
+}
+
+.legend { margin-top: 10px; color: var(--muted); font-size: 14px; }
+.legend b { color: var(--text); font-weight: 600; }
+
+.pol { width: 15px; height: 15px; vertical-align: middle; }
+
+/* Kulcsok */
+
+.key-row { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; gap: 12px; align-items: baseline; padding: 2px 0; }
+.key-row > b { font-weight: 600; }
+.key-row.e > b { color: var(--eve); }
+.key-bits { font: 14px/1.6 var(--mono); word-break: break-all; }
+.key-bits .diff { background: var(--eve-fill); color: var(--on-fill); }
+.key-bits .unk { color: var(--faint); }
+.key-note { color: var(--muted); font-size: 14px; white-space: nowrap; }
+#keys.done .panel-head { color: var(--good); }

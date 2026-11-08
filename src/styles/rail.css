@@ -1,0 +1,78 @@
+/* A protokoll kilenc lépésének folyamatjelzője. */
+
+/* A protokoll lépései */
+
+.rail-wrap { overflow-x: auto; margin: 0 -6px; padding: 6px; }
+
+.rail {
+  --done: 0;
+  position: relative;
+  min-width: 828px;
+  display: grid;
+  grid-template-columns: repeat(9, minmax(92px, 1fr));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rail::before, .rail::after {
+  content: "";
+  position: absolute;
+  top: 14px;
+  left: calc(100% / 18);
+  width: calc(100% * 8 / 9);
+  height: 2px;
+  background: var(--line);
+}
+
+.rail::after {
+  background: var(--accent-fill);
+  transform: scaleX(var(--done));
+  transform-origin: left;
+  transition: transform .5s var(--ease), background-color .3s;
+}
+
+.rail.aborted::after { background: var(--eve-fill); }
+
+.rail li { position: relative; z-index: 1; }
+
+.rail button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+  min-height: 0;
+  padding: 0 2px;
+  background: none;
+  border: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.25;
+}
+
+.rail b {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  background: var(--bg);
+  border: 2px solid var(--line);
+  border-radius: 50%;
+  font-size: 13px;
+  font-weight: 600;
+  transition: background-color .3s, border-color .3s, color .3s, box-shadow .3s;
+}
+
+.rail button:disabled { color: var(--faint); }
+.rail button:hover:not(:disabled) { color: var(--text); }
+.rail button:hover:not(:disabled) b { border-color: var(--accent); }
+.rail .past button { color: var(--text); }
+.rail .past b { background: var(--accent-fill); border-color: var(--accent-fill); color: var(--on-fill); }
+.rail .current button { color: var(--accent); font-weight: 600; }
+.rail .current b { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 0 4px var(--current); }
+.rail.aborted .past b { background: var(--eve-fill); border-color: var(--eve-fill); }
+.rail .failed button { color: var(--eve); }
+.rail .failed b { border-color: var(--eve); color: var(--eve); box-shadow: 0 0 0 4px var(--eve-soft); }
+
+.rail-label { display: none; }

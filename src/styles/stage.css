@@ -1,0 +1,56 @@
+/* A csatorna ábrája, a magyarázat és a léptetés. */
+
+/* Csatorna és magyarázat */
+
+.stage { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
+
+.bench-box { align-self: center; }
+#bench { display: block; width: 100%; height: auto; padding: 14px 18px; }
+#bench rect { fill: var(--bg); stroke: var(--line-strong); stroke-width: 1.5; transition: fill .25s; }
+
+.beam { stroke: var(--beam); stroke-width: 2.5; fill: none; }
+.classical { stroke: var(--line-strong); stroke-width: 1.5; stroke-dasharray: 7 6; fill: none; }
+
+.trail { stroke: var(--accent); stroke-width: 3.5; fill: none; opacity: 0; transition: opacity .5s; }
+.trail.tampered { stroke: var(--eve); }
+.flying .trail { opacity: .75; transition: none; }
+
+.who { font: 600 22px var(--font); fill: var(--text); }
+.val { font: 20px var(--font); fill: var(--text); }
+.tag { font: 17px var(--font); fill: var(--muted); }
+
+#beam-label { transition: transform .4s var(--ease); }
+.has-eve #beam-label { transform: translateX(-202px); }
+
+.eve-part { opacity: 0; transition: opacity .4s; }
+.has-eve .eve-part { opacity: 1; }
+
+#bench .eve rect { stroke: var(--eve); stroke-width: 2; }
+#bench .eve .who { fill: var(--eve); }
+.tap { stroke: var(--eve); }
+
+.tall .who { font-size: 17px; }
+.tall .val { font-size: 15px; }
+.tall .tag { font-size: 13px; }
+.tall .packet text { font-size: 12px; }
+.tall #beam-label, .has-eve.tall #beam-label { transform: none; transition: none; }
+#bench.tall { max-width: 340px; margin: 0 auto; }
+
+.photon { color: var(--accent); transition: color .2s; }
+.photon.tampered { color: var(--eve); }
+.photon circle { fill: var(--bg); stroke: currentColor; stroke-width: 2.5; }
+.photon path { fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+
+#bench .packet rect { fill: var(--current); stroke: var(--accent); stroke-width: 1.5; }
+.packet text { font: 16px var(--font); fill: var(--packet-text); }
+
+.narration { min-height: 272px; padding: 18px 22px; border-left: 1px solid var(--line); }
+.narration h2 { font-size: 18px; font-weight: 600; line-height: 1.3; margin-bottom: 8px; }
+.narration.abort h2 { color: var(--eve); }
+.narration.success h2 { color: var(--good); }
+.narration p { max-width: 65ch; overflow-wrap: anywhere; }
+.narration p + p { margin-top: 8px; }
+.narration b { font-weight: 600; }
+
+.transport { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 18px; border-top: 1px solid var(--line); }
+.progress { margin-left: auto; color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
