@@ -1,0 +1,2148 @@
+<!doctype html>
+<html lang="hu" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BB84-szimulátor</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-20 -20 40 40'%3E%3Ccircle r='20' fill='%232152c9'/%3E%3Cpath d='M-7-7L7 7M-7 7L7-7' stroke='%23fff' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
+<script>try { if (localStorage.getItem('bb84-theme') === 'dark') document.documentElement.dataset.theme = 'dark'; } catch { /* világos marad */ }</script>
+<style>
+/* Színek és betűk: a világos és a sötét téma tokenjei. */
+
+:root {
+  color-scheme: light;
+  --bg: #fff;
+  --text: #16191f;
+  --muted: #59616d;
+  --faint: #686f7a;
+  --line: #e3e6ea;
+  --line-strong: #878f9b;
+  --accent: #2152c9;
+  --accent-fill: #2152c9;
+  --accent-hover: #173f9f;
+  --current: #edf2fd;
+  --edit: #f4f6fa;
+  --hover: #dbe5fb;
+  --beam: #c8cdd4;
+  --selection: #d5e1fa;
+  --packet-text: #173f9f;
+  --eve: #c5242b;
+  --eve-fill: #c5242b;
+  --eve-soft: #fbeaeb;
+  --good: #12764a;
+  --good-fill: #12764a;
+  --on-fill: #fff;
+  --ease: cubic-bezier(.22, 1, .36, 1);
+  --font: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --mono: Consolas, "Cascadia Mono", "Courier New", monospace;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0f1319;
+  --text: #e8ebf0;
+  --muted: #a6aeba;
+  --faint: #8b93a0;
+  --line: #2b313b;
+  --line-strong: #6f7886;
+  --accent: #8db0ff;
+  --accent-fill: #2f62dc;
+  --accent-hover: #3f72ec;
+  --current: #1b2740;
+  --edit: #171c25;
+  --hover: #25345a;
+  --beam: #454d5a;
+  --selection: #2c4374;
+  --packet-text: #c4d5ff;
+  --eve: #ff8a8a;
+  --eve-fill: #c5242b;
+  --eve-soft: #3a1c20;
+  --good: #5fd39c;
+  --good-fill: #12764a;
+}
+</style>
+<style>
+/* Alapok: oldalszerkezet, fejléc, lábléc, panelek és vezérlők. */
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+html, body { margin: 0; background: var(--bg); }
+
+body {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  color: var(--text);
+  font: 15px/1.5 var(--font);
+  transition: background-color .25s, color .25s;
+}
+
+h1, h2, p, dl, dd { margin: 0; }
+
+button, input, select { font: inherit; color: inherit; touch-action: manipulation; }
+
+::selection { background: var(--selection); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.wrap { width: 100%; max-width: 1320px; margin: 0 auto; padding: 0 24px; }
+
+/* Fejléc és lábléc */
+
+.site-head { border-bottom: 1px solid var(--line); }
+.site-head .wrap { display: flex; align-items: center; gap: 14px; padding-top: 14px; padding-bottom: 14px; }
+.site-head h1 { font-size: 21px; font-weight: 600; line-height: 1.25; letter-spacing: -.01em; }
+.site-head p { color: var(--muted); font-size: 14px; }
+.brand { flex: 1; min-width: 0; }
+
+.mark { flex: none; width: 42px; height: 42px; }
+.mark circle { fill: var(--accent-fill); }
+.mark path { fill: none; stroke: #fff; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+
+.site-tools { flex: none; display: flex; align-items: center; gap: 8px; }
+
+.seg { display: flex; border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden; }
+
+.seg button {
+  min-width: 40px;
+  padding: 5px 8px;
+  border: 0;
+  border-radius: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.seg button[aria-pressed="true"] { background: var(--accent-fill); color: var(--on-fill); }
+
+button.icon { display: grid; place-items: center; width: 38px; min-height: 38px; padding: 0; }
+.icon svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.icon .sun { display: none; }
+[data-theme="dark"] .icon .sun { display: block; }
+[data-theme="dark"] .icon .moon { display: none; }
+
+.site-foot { margin-top: 32px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; }
+.site-foot .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 24px; padding-top: 16px; padding-bottom: 16px; }
+
+main.wrap { flex: 1; display: flex; flex-direction: column; gap: 16px; padding-top: 20px; }
+
+.panel { background: var(--bg); border: 1px solid var(--line); border-radius: 12px; transition: background-color .25s, border-color .25s; }
+.panel-head { padding: 12px 18px; border-bottom: 1px solid var(--line); font-size: 15px; font-weight: 600; }
+.panel-body { padding: 12px 18px 14px; }
+
+/* Vezérlők */
+
+select, button {
+  min-height: 36px;
+  padding: 5px 14px;
+  background: var(--bg);
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color .18s, border-color .18s, color .18s, box-shadow .18s, transform .12s;
+}
+
+select { padding-right: 8px; }
+
+button:hover:not(:disabled), select:hover { border-color: var(--text); }
+button:active:not(:disabled) { transform: translateY(1px); }
+
+button.primary {
+  padding-left: 20px;
+  padding-right: 20px;
+  background: var(--accent-fill);
+  border-color: var(--accent-fill);
+  color: var(--on-fill);
+  font-weight: 600;
+}
+
+button.primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+  box-shadow: 0 6px 14px -8px rgba(33, 82, 201, .7);
+}
+
+button:disabled { color: var(--faint); border-color: var(--line); cursor: default; }
+button.primary:disabled { background: var(--line); border-color: var(--line); color: var(--faint); }
+
+.settings { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 28px; padding: 12px 18px; }
+.settings label { display: flex; align-items: center; gap: 10px; }
+.settings-end { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 28px; margin-left: auto; }
+
+.check { cursor: pointer; }
+.check.eve { font-weight: 600; transition: color .2s; }
+.check.eve:has(input:checked) { color: var(--eve); }
+
+.check input {
+  appearance: none;
+  flex: none;
+  position: relative;
+  width: 40px;
+  height: 22px;
+  margin: 0;
+  background: var(--line-strong);
+  border-radius: 11px;
+  cursor: pointer;
+  transition: background-color .22s;
+}
+
+.check input::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .25);
+  transition: transform .26s var(--ease);
+}
+
+.check input:checked { background: var(--accent-fill); }
+.check.eve input:checked { background: var(--eve-fill); }
+.check input:checked::before { transform: translateX(18px); }
+</style>
+<style>
+/* A protokoll kilenc lépésének folyamatjelzője. */
+
+/* A protokoll lépései */
+
+.rail-wrap { overflow-x: auto; margin: 0 -6px; padding: 6px; }
+
+.rail {
+  --done: 0;
+  position: relative;
+  min-width: 828px;
+  display: grid;
+  grid-template-columns: repeat(9, minmax(92px, 1fr));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rail::before, .rail::after {
+  content: "";
+  position: absolute;
+  top: 14px;
+  left: calc(100% / 18);
+  width: calc(100% * 8 / 9);
+  height: 2px;
+  background: var(--line);
+}
+
+.rail::after {
+  background: var(--accent-fill);
+  transform: scaleX(var(--done));
+  transform-origin: left;
+  transition: transform .5s var(--ease), background-color .3s;
+}
+
+.rail.aborted::after { background: var(--eve-fill); }
+
+.rail li { position: relative; z-index: 1; }
+
+.rail button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+  min-height: 0;
+  padding: 0 2px;
+  background: none;
+  border: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.25;
+}
+
+.rail b {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  background: var(--bg);
+  border: 2px solid var(--line);
+  border-radius: 50%;
+  font-size: 13px;
+  font-weight: 600;
+  transition: background-color .3s, border-color .3s, color .3s, box-shadow .3s;
+}
+
+.rail button:disabled { color: var(--faint); }
+.rail button:hover:not(:disabled) { color: var(--text); }
+.rail button:hover:not(:disabled) b { border-color: var(--accent); }
+.rail .past button { color: var(--text); }
+.rail .past b { background: var(--accent-fill); border-color: var(--accent-fill); color: var(--on-fill); }
+.rail .current button { color: var(--accent); font-weight: 600; }
+.rail .current b { border-color: var(--accent); color: var(--accent); box-shadow: 0 0 0 4px var(--current); }
+.rail.aborted .past b { background: var(--eve-fill); border-color: var(--eve-fill); }
+.rail .failed button { color: var(--eve); }
+.rail .failed b { border-color: var(--eve); color: var(--eve); box-shadow: 0 0 0 4px var(--eve-soft); }
+
+.rail-label { display: none; }
+</style>
+<style>
+/* A csatorna ábrája, a magyarázat és a léptetés. */
+
+/* Csatorna és magyarázat */
+
+.stage { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); }
+
+.bench-box { align-self: center; }
+#bench { display: block; width: 100%; height: auto; padding: 14px 18px; }
+#bench rect { fill: var(--bg); stroke: var(--line-strong); stroke-width: 1.5; transition: fill .25s; }
+
+.beam { stroke: var(--beam); stroke-width: 2.5; fill: none; }
+.classical { stroke: var(--line-strong); stroke-width: 1.5; stroke-dasharray: 7 6; fill: none; }
+
+.trail { stroke: var(--accent); stroke-width: 3.5; fill: none; opacity: 0; transition: opacity .5s; }
+.trail.tampered { stroke: var(--eve); }
+.flying .trail { opacity: .75; transition: none; }
+
+.who { font: 600 22px var(--font); fill: var(--text); }
+.val { font: 20px var(--font); fill: var(--text); }
+.tag { font: 17px var(--font); fill: var(--muted); }
+
+#beam-label { transition: transform .4s var(--ease); }
+.has-eve #beam-label { transform: translateX(-202px); }
+
+.eve-part { opacity: 0; transition: opacity .4s; }
+.has-eve .eve-part { opacity: 1; }
+
+#bench .eve rect { stroke: var(--eve); stroke-width: 2; }
+#bench .eve .who { fill: var(--eve); }
+.tap { stroke: var(--eve); }
+
+.tall .who { font-size: 17px; }
+.tall .val { font-size: 15px; }
+.tall .tag { font-size: 13px; }
+.tall .packet text { font-size: 12px; }
+.tall #beam-label, .has-eve.tall #beam-label { transform: none; transition: none; }
+#bench.tall { max-width: 340px; margin: 0 auto; }
+
+.photon { color: var(--accent); transition: color .2s; }
+.photon.tampered { color: var(--eve); }
+.photon circle { fill: var(--bg); stroke: currentColor; stroke-width: 2.5; }
+.photon path { fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+
+#bench .packet rect { fill: var(--current); stroke: var(--accent); stroke-width: 1.5; }
+.packet text { font: 16px var(--font); fill: var(--packet-text); }
+
+.narration { min-height: 272px; padding: 18px 22px; border-left: 1px solid var(--line); }
+.narration h2 { font-size: 18px; font-weight: 600; line-height: 1.3; margin-bottom: 8px; }
+.narration.abort h2 { color: var(--eve); }
+.narration.success h2 { color: var(--good); }
+.narration p { max-width: 65ch; overflow-wrap: anywhere; }
+.narration p + p { margin-top: 8px; }
+.narration b { font-weight: 600; }
+
+.transport { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 18px; border-top: 1px solid var(--line); }
+.progress { margin-left: auto; color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
+</style>
+<style>
+/* Mérőszámok, qubitenkénti táblázat és kulcsok. */
+
+/* Eredmények */
+
+.metrics { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.metric { min-width: 0; padding: 12px 18px; border-left: 1px solid var(--line); }
+.metric:first-child { border-left: 0; }
+.metric dt { color: var(--muted); font-size: 13px; }
+.metric dd { font-size: 21px; font-weight: 600; line-height: 1.3; font-variant-numeric: tabular-nums; transition: color .3s; }
+.metric.bad dd { color: var(--eve); }
+.metric.good dd { color: var(--good); }
+
+.metric dd.meter { position: relative; height: 5px; margin-top: 6px; background: var(--line); border-radius: 3px; }
+.meter i { position: absolute; inset: 0; background: var(--accent); border-radius: 3px; transform: scaleX(0); transform-origin: left; transition: transform .6s var(--ease), background-color .3s; }
+.meter.over i { background: var(--eve); }
+.meter u { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--text); }
+
+/* Táblázat */
+
+.ledger-scroll { overflow-x: auto; }
+
+#ledger { border-collapse: separate; border-spacing: 0; font: 14px var(--mono); }
+
+#ledger th, #ledger td {
+  width: 17px;
+  min-width: 17px;
+  height: 26px;
+  padding: 0;
+  text-align: center;
+  border-bottom: 1px solid var(--line);
+}
+
+#ledger tr:last-child th, #ledger tr:last-child td { border-bottom: 0; }
+
+#ledger thead th { color: var(--muted); font: 400 10px var(--font); letter-spacing: -.03em; }
+
+#ledger th.row {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  width: auto;
+  padding: 0 10px 0 0;
+  background: var(--bg);
+  font: 400 14px var(--font);
+  text-align: left;
+  white-space: nowrap;
+}
+
+#ledger th.row.who-e, #ledger td.who-e { color: var(--eve); }
+
+#ledger td.cur, #ledger thead th.cur { background: var(--current); }
+#ledger td.dim { color: var(--faint); }
+#ledger td.yes { color: var(--good); }
+#ledger td.no { color: var(--faint); }
+#ledger td.sample { color: var(--accent); font-weight: 600; }
+#ledger td.err { background: var(--eve-fill); color: var(--on-fill); font-weight: 600; }
+#ledger td.err-hidden { box-shadow: inset 0 0 0 1.5px var(--eve); color: var(--eve); font-weight: 600; }
+#ledger td.fixed { background: var(--good-fill); color: var(--on-fill); font-weight: 600; }
+#ledger td.edit { background: var(--edit); }
+
+#ledger td button {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  color: inherit;
+  font: inherit;
+  transition: background-color .12s, color .12s;
+}
+
+#ledger td button:hover { background: var(--hover); color: var(--accent); font-weight: 600; }
+#ledger td button:focus-visible { outline-offset: -2px; }
+
+#ledger tr.reveal td:not(:empty) { animation: cell-in .4s var(--ease) both; animation-delay: calc(var(--i) * 7ms); }
+#ledger.sifting td.dim { animation: dim-in .6s ease-out; }
+
+@keyframes cell-in {
+  from { opacity: 0; }
+}
+
+@keyframes dim-in {
+  from { color: var(--text); }
+}
+
+.legend { margin-top: 10px; color: var(--muted); font-size: 14px; }
+.legend b { color: var(--text); font-weight: 600; }
+
+.pol { width: 15px; height: 15px; vertical-align: middle; }
+
+/* Kulcsok */
+
+.key-row { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto; gap: 12px; align-items: baseline; padding: 2px 0; }
+.key-row > b { font-weight: 600; }
+.key-row.e > b { color: var(--eve); }
+.key-bits { font: 14px/1.6 var(--mono); word-break: break-all; }
+.key-bits .diff { background: var(--eve-fill); color: var(--on-fill); }
+.key-bits .unk { color: var(--faint); }
+.key-note { color: var(--muted); font-size: 14px; white-space: nowrap; }
+#keys.done .panel-head { color: var(--good); }
+</style>
+<style>
+/* Keskeny kijelzők (320 px-ig) és az animációk kikapcsolása. */
+
+@media (max-width: 1100px) {
+  .stage { grid-template-columns: minmax(0, 1fr); }
+  .narration { min-height: 0; border-left: 0; border-top: 1px solid var(--line); }
+}
+
+@media (max-width: 900px) {
+  .rail-wrap { overflow: visible; margin: 0; padding: 4px 0 0; }
+  .rail { min-width: 0; grid-template-columns: repeat(9, minmax(0, 1fr)); }
+  .rail::before, .rail::after { top: 13px; }
+  .rail button { min-height: 28px; }
+  .rail button span { display: none; }
+  .rail b { width: 28px; height: 28px; font-size: 12px; }
+  .rail .current b { box-shadow: 0 0 0 3px var(--current); }
+  .rail-label { display: block; margin-top: 8px; color: var(--accent); font-size: 14px; font-weight: 600; text-align: center; font-variant-numeric: tabular-nums; }
+  .rail-wrap:has(.aborted) .rail-label { color: var(--eve); }
+
+  .metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .metric:nth-child(3n + 1) { border-left: 0; }
+  .metric:nth-child(n + 4) { border-top: 1px solid var(--line); }
+  .settings-end { margin-left: 0; }
+}
+
+@media (max-width: 640px) {
+  .wrap { padding-left: 12px; padding-right: 12px; }
+  main.wrap { gap: 12px; padding-top: 12px; }
+
+  .site-head .wrap { gap: 10px; padding-top: 10px; padding-bottom: 10px; }
+  .site-head h1 { font-size: 16px; white-space: nowrap; }
+  .site-head p { display: none; }
+  .mark { width: 30px; height: 30px; }
+
+  select, button { min-height: 44px; }
+  .seg button { min-height: 38px; min-width: 32px; padding: 4px; }
+  button.icon { min-height: 40px; width: 40px; }
+
+  .settings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; padding: 12px; }
+  .settings-end { display: contents; }
+  .settings label:not(.check) { flex-direction: column; align-items: stretch; gap: 2px; color: var(--muted); font-size: 13px; }
+  .settings label:not(.check) select { color: var(--text); font-size: 15px; }
+  .settings .check { gap: 6px; font-size: 14px; }
+  #rate-field { order: 1; }
+  .check { order: 2; }
+  #btn-reroll { order: 3; grid-column: 1 / -1; }
+
+  #bench { padding: 10px; }
+  .narration { padding: 14px; }
+
+  /* A léptetés hüvelykujjnyi távolságban marad görgetéskor is. */
+  .transport {
+    position: sticky;
+    bottom: 0;
+    z-index: 3;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr);
+    grid-template-areas: "back next" "reset phase";
+    gap: 6px;
+    padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
+    background: var(--bg);
+    border-radius: 0 0 12px 12px;
+  }
+
+  #btn-next { grid-area: next; padding: 4px 6px; }
+  #btn-back { grid-area: back; }
+  #btn-phase { grid-area: phase; }
+  #btn-reset { grid-area: reset; }
+  .transport button { min-height: 42px; padding: 4px 6px; font-size: 14px; }
+  .progress { display: none; }
+
+  .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .metric, .metric:nth-child(n) { border-left: 0; }
+  .metric { padding: 10px 12px; }
+  .metric dd { font-size: 19px; }
+  .metric:nth-child(even) { border-left: 1px solid var(--line); }
+  .metric:nth-child(n + 3) { border-top: 1px solid var(--line); }
+  .metric:last-child { grid-column: 1 / -1; }
+  .metric:last-child:nth-child(n) { border-left: 0; }
+
+  .panel-head { padding: 10px 12px; }
+  .panel-body { padding: 10px 12px; }
+
+  #ledger th, #ledger td { width: 30px; min-width: 30px; height: 36px; }
+  #ledger thead th { height: 24px; font-size: 11px; }
+  #ledger th.row { width: 84px; min-width: 84px; max-width: 84px; padding-right: 6px; font-size: 12px; line-height: 1.15; white-space: normal; }
+
+  .key-row { grid-template-columns: 44px minmax(0, 1fr); gap: 2px 8px; }
+  .key-note { grid-column: 2; font-size: 13px; white-space: normal; }
+
+  .site-foot { margin-top: 20px; }
+  .site-foot .wrap { flex-direction: column; }
+}
+
+.no-motion *, .no-motion *::before, .no-motion *::after { animation: none !important; transition: none !important; }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-pol" viewBox="-12 -12 24 24">
+    <path d="M-10 0H10M-10 0l4-3.2M-10 0l4 3.2M10 0l-4-3.2M10 0l-4 3.2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  </symbol>
+</svg>
+
+<header class="site-head">
+  <div class="wrap">
+    <svg class="mark" viewBox="-20 -20 40 40" aria-hidden="true">
+      <circle r="19"/>
+      <path d="M-10 0H10M-10 0l4-3.2M-10 0l4 3.2M10 0l-4-3.2M10 0l-4 3.2" transform="rotate(-45)"/>
+    </svg>
+    <div class="brand">
+      <h1 data-t="title"></h1>
+      <p data-t="tagline"></p>
+    </div>
+    <div class="site-tools">
+      <div class="seg" role="group" data-t-aria="language">
+        <button type="button" data-lang="hu">HU</button>
+        <button type="button" data-lang="en">EN</button>
+      </div>
+      <button type="button" id="btn-theme" class="icon">
+        <svg class="moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5Z"/></svg>
+        <svg class="sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></svg>
+      </button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="panel settings" data-t-aria="settings">
+    <label><span data-t="qubits"></span>
+      <select id="in-n">
+        <option>64</option>
+        <option>96</option>
+        <option>128</option>
+      </select>
+    </label>
+    <label class="check eve"><input type="checkbox" role="switch" id="in-eve" autocomplete="off"> <span data-t="eveToggle"></span></label>
+    <label id="rate-field"><span data-t="intercepted"></span>
+      <select id="in-rate">
+        <option value="1">100%</option>
+        <option value="0.75">75%</option>
+        <option value="0.5">50%</option>
+        <option value="0.25">25%</option>
+      </select>
+    </label>
+    <div class="settings-end">
+      <label class="check"><input type="checkbox" role="switch" id="in-motion" autocomplete="off" checked> <span data-t="animations"></span></label>
+      <button type="button" id="btn-reroll" data-t="reroll"></button>
+    </div>
+  </section>
+
+  <nav class="rail-wrap" data-t-aria="rail">
+    <ol class="rail" id="rail"></ol>
+    <p class="rail-label" id="rail-label" aria-hidden="true"></p>
+  </nav>
+
+  <section class="panel">
+    <div class="stage">
+      <div class="bench-box"><svg id="bench" viewBox="0 0 1000 225" role="img" data-t-aria="bench">
+        <path class="beam" id="beam" d="M180 80H820"/>
+        <path id="trail-a" class="trail" d="M180 80H180"/>
+        <path id="trail-b" class="trail tampered" d="M585 80H585"/>
+        <text id="beam-label" class="tag" x="500" y="64" text-anchor="middle" data-t="quantumChannel"></text>
+
+        <path class="classical" id="classical" d="M95 140V185H905V140"/>
+        <path class="classical tap eve-part" id="tap" d="M500 140V185"/>
+        <text id="public-label" class="tag" x="500" y="214" text-anchor="middle"></text>
+
+        <g id="alice-box" transform="translate(10 20)">
+          <rect width="170" height="120" rx="10"/>
+          <text x="18" y="34" class="who" id="name-alice"></text>
+          <text x="18" y="68" class="val" id="a-bit"></text>
+          <text x="18" y="98" class="val" id="a-basis"></text>
+        </g>
+
+        <g class="eve eve-part" id="eve-box" transform="translate(415 20)">
+          <rect width="170" height="120" rx="10"/>
+          <text x="18" y="34" class="who" id="name-eve"></text>
+          <text x="18" y="68" class="val" id="e-basis"></text>
+          <text x="18" y="98" class="val" id="e-bit"></text>
+        </g>
+
+        <g id="bob-box" transform="translate(820 20)">
+          <rect width="170" height="120" rx="10"/>
+          <text x="18" y="34" class="who" id="name-bob"></text>
+          <text x="18" y="68" class="val" id="b-basis"></text>
+          <text x="18" y="98" class="val" id="b-bit"></text>
+        </g>
+
+        <g id="photon" class="photon" visibility="hidden">
+          <circle r="17"/>
+          <g id="photon-pol"><path d="M-12 0H12M-12 0l5-4M-12 0l5 4M12 0l-5-4M12 0l-5 4"/></g>
+        </g>
+        <g id="packet" class="packet" visibility="hidden">
+          <rect id="packet-box" x="-56" y="-15" width="112" height="30" rx="15"/>
+          <text id="packet-label" y="5.5" text-anchor="middle"></text>
+        </g>
+      </svg></div>
+
+      <article class="narration" id="narration" aria-live="polite" aria-atomic="true">
+        <h2 id="narr-title"></h2>
+        <div id="narr-body"></div>
+      </article>
+    </div>
+
+    <div class="transport" role="group" data-t-aria="transport">
+      <button type="button" id="btn-next" class="primary" data-t="next"></button>
+      <button type="button" id="btn-back" data-t="back"></button>
+      <button type="button" id="btn-phase" data-t="nextPhase"></button>
+      <button type="button" id="btn-reset" data-t="reset"></button>
+      <span class="progress" id="progress"></span>
+    </div>
+  </section>
+
+  <dl class="panel metrics">
+    <div class="metric" id="m-sent"><dt data-t="mSent"></dt><dd></dd></div>
+    <div class="metric" id="m-match"><dt data-t="mMatch"></dt><dd></dd></div>
+    <div class="metric" id="m-err"><dt data-t="mErr"></dt><dd></dd></div>
+    <div class="metric" id="m-qber">
+      <dt id="qber-label"></dt><dd></dd>
+      <dd class="meter" id="meter" aria-hidden="true"><i id="meter-fill"></i><u id="meter-mark"></u></dd>
+    </div>
+    <div class="metric" id="m-key"><dt data-t="mKey"></dt><dd></dd></div>
+  </dl>
+
+  <section class="panel">
+    <h2 class="panel-head" data-t="panelQubits"></h2>
+    <div class="panel-body">
+      <div class="ledger-scroll" id="ledger-scroll" role="region" tabindex="0" data-t-aria="scroll">
+        <table id="ledger" data-t-aria="table"></table>
+      </div>
+      <p class="legend" id="legend"></p>
+    </div>
+  </section>
+
+  <section class="panel" id="keys" data-t-aria="keys"></section>
+</main>
+
+<footer class="site-foot">
+  <div class="wrap">
+    <span>Hajdú Patrik Zsolt</span>
+    <span data-t="course"></span>
+  </div>
+</footer>
+
+<script>
+// Egyetlen qubit állapotvektoros szimulációja. A komplex számok [re, im] párok,
+// egy állapot pedig [alfa, béta] amplitúdópár a számítási bázisban.
+const Quantum = (() => {
+  const S = Math.SQRT1_2;
+  const c = (re, im = 0) => [re, im];
+
+  const add = (a, b) => [a[0] + b[0], a[1] + b[1]];
+  const mul = (a, b) => [a[0] * b[0] - a[1] * b[1], a[0] * b[1] + a[1] * b[0]];
+  const conj = (a) => [a[0], -a[1]];
+  const abs2 = (a) => a[0] * a[0] + a[1] * a[1];
+
+  const Gates = {
+    X: [[c(0), c(1)], [c(1), c(0)]],
+    H: [[c(S), c(S)], [c(S), c(-S)]],
+  };
+
+  const Ry = (theta) => {
+    const co = Math.cos(theta / 2);
+    const si = Math.sin(theta / 2);
+    return [[c(co), c(-si)], [c(si), c(co)]];
+  };
+
+  const apply = (U, [a, b]) => [
+    add(mul(U[0][0], a), mul(U[0][1], b)),
+    add(mul(U[1][0], a), mul(U[1][1], b)),
+  ];
+
+  const KET0 = [c(1), c(0)];
+
+  // A mérési bázisok a Bloch-gömb XZ-főkörén: a szög a 0 kimenethez tartozó
+  // bázisvektor iránya a Z tengelytől mérve.
+  const BASES = {
+    Z: { theta: 0, label: '+' },
+    X: { theta: Math.PI / 2, label: '×' },
+  };
+
+  // Alice kódolása: |0⟩-ból indul, X a bithez, H az átlós bázishoz.
+  function prepare(bit, basis) {
+    let psi = KET0;
+    if (bit === 1) psi = apply(Gates.X, psi);
+    if (basis === 'X') psi = apply(Gates.H, psi);
+    return psi;
+  }
+
+  // A 0 kimenet valószínűsége a megadott bázisban.
+  function probZero(psi, basis) {
+    return abs2(apply(Ry(-BASES[basis].theta), psi)[0]);
+  }
+
+  // Projektív mérés: a Born-szabály szerint sorsol, és az állapot az adott
+  // bázisvektorba omlik össze.
+  function measure(psi, basis, rng) {
+    const p0 = probZero(psi, basis);
+    const outcome = rng() < p0 ? 0 : 1;
+    const post = apply(Ry(BASES[basis].theta), outcome === 0 ? KET0 : apply(Gates.X, KET0));
+    return { outcome, p0, state: post };
+  }
+
+  // Bloch-vektor a gömbön; a BB84 állapotai mind az XZ-főkörön maradnak.
+  function bloch([a, b]) {
+    const cross = mul(conj(a), b);
+    return { x: 2 * cross[0], y: 2 * cross[1], z: abs2(a) - abs2(b) };
+  }
+
+  const blochAngle = (psi) => {
+    const v = bloch(psi);
+    return Math.atan2(v.x, v.z);
+  };
+
+  // Fizikai polarizációs szög fokban: |0⟩ vízszintes, |1⟩ függőleges, |+⟩ 45°.
+  const polarization = (psi) => (blochAngle(psi) * 90) / Math.PI;
+
+  function ketLabel(psi) {
+    const angle = Math.round((blochAngle(psi) * 180) / Math.PI);
+    const known = { 0: '|0⟩', 180: '|1⟩', '-180': '|1⟩', 90: '|+⟩', '-90': '|−⟩' };
+    return known[angle] ?? `${angle}°`;
+  }
+
+  return {
+    c, add, mul, conj, abs2, Gates, Ry, apply, KET0, BASES,
+    prepare, probZero, measure, bloch, blochAngle, polarization, ketLabel,
+  };
+})();
+
+if (typeof module !== 'undefined') module.exports = Quantum;
+</script>
+<script>
+// Determinisztikus véletlen: ugyanaz a mag mindig ugyanazt a futást adja, ezért a
+// visszalépés és az újrajátszás is pontosan ugyanazt mutatja.
+const Random = (() => {
+  function mulberry32(seed) {
+    let a = seed >>> 0;
+    return () => {
+      a = (a + 0x6d2b79f5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  const randBit = (rng) => (rng() < 0.5 ? 0 : 1);
+  const randBasis = (rng) => (rng() < 0.5 ? 'Z' : 'X');
+
+  function shuffled(items, rng) {
+    const out = items.slice();
+    for (let i = out.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [out[i], out[j]] = [out[j], out[i]];
+    }
+    return out;
+  }
+
+  return { mulberry32, randBit, randBasis, shuffled };
+})();
+
+if (typeof module !== 'undefined') module.exports = Random;
+</script>
+<script>
+// A klasszikus utófeldolgozás: hibajavítás (Cascade) és titkosságerősítés
+// (Toeplitz-hash). Ezek már csak biteken dolgoznak, kvantumállapot nélkül.
+const Postprocess = (() => {
+  const { shuffled } = typeof Random !== 'undefined' ? Random : require('./random.js');
+
+  const parityOf = (bits, positions) => positions.reduce((p, i) => p ^ bits[i], 0);
+
+  // Bináris entrópia: ennyi bitnyi bizonytalanság marad bitenként p hibaaránynál.
+  const h2 = (p) => (p <= 0 || p >= 1 ? 0 : -p * Math.log2(p) - (1 - p) * Math.log2(1 - p));
+
+  // Cascade: blokkparitások összevetése, eltérésnél bináris keresés. Bob javít,
+  // minden nyilvánosan elhangzó paritás egy szivárgott bit. Egy javítás után a
+  // korábbi körök érintett blokkjai is újra eltérhetnek, ezeket is rendbe teszi.
+  function reconcile(alice, bobInput, qber, cfg, rng) {
+    const bob = bobInput.slice();
+    const n = alice.length;
+    const passes = [];
+    let leak = 0;
+    const firstBlock = qber > 0 ? Math.max(2, Math.min(n, Math.ceil(0.73 / qber))) : n;
+    const blockOf = [];
+    const disclosed = new Set();
+
+    // Egy már elhangzott paritás ismétlése nem árul el új bitet.
+    const newParity = (positions) => {
+      const id = positions.slice().sort((a, b) => a - b).join();
+      if (disclosed.has(id)) return 0;
+      disclosed.add(id);
+      return 1;
+    };
+
+    const correct = (block, pass) => {
+      let lo = 0;
+      let hi = block.length;
+      while (hi - lo > 1) {
+        const mid = (lo + hi) >> 1;
+        const left = block.slice(lo, mid);
+        pass.leak += newParity(left);
+        if (parityOf(alice, left) !== parityOf(bob, left)) hi = mid;
+        else lo = mid;
+      }
+      const bit = block[lo];
+      bob[bit] ^= 1;
+      pass.fixed.push(bit);
+      // A korábbi blokkok paritása már elhangzott, az összevetésük nem szivárog.
+      blockOf.forEach((map) => {
+        const other = map[bit];
+        if (other !== block && parityOf(alice, other) !== parityOf(bob, other)) correct(other, pass);
+      });
+    };
+
+    for (let p = 0; p < cfg.ecPasses; p++) {
+      // A teljes kulcs paritása újrakeverve sem ad új információt.
+      const size = Math.min(Math.max(1, Math.ceil(n / 2)), firstBlock * 2 ** p);
+      const order = shuffled(alice.map((_, i) => i), rng);
+      const pass = { size, blocks: 0, leak: 0, fixed: [] };
+      const blocks = [];
+      const map = [];
+      for (let start = 0; start < n; start += size) {
+        const block = order.slice(start, start + size);
+        blocks.push(block);
+        block.forEach((bit) => { map[bit] = block; });
+      }
+      blockOf.push(map);
+
+      for (const block of blocks) {
+        pass.blocks++;
+        pass.leak += newParity(block);
+        if (parityOf(alice, block) !== parityOf(bob, block)) correct(block, pass);
+      }
+      leak += pass.leak;
+      passes.push(pass);
+    }
+
+    // Záró ellenőrzés véletlen részhalmazok paritásával.
+    let verified = true;
+    for (let t = 0; t < cfg.verifyBits; t++) {
+      const subset = alice.map((_, i) => i).filter(() => rng() < 0.5);
+      leak += newParity(subset);
+      if (parityOf(alice, subset) !== parityOf(bob, subset)) verified = false;
+    }
+    return { bob, passes, leak, verified, verifyBits: cfg.verifyBits };
+  }
+
+  // Univerzális hash: véletlen Toeplitz-mátrix szorzása GF(2) felett.
+  function toeplitzHash(key, outLen, seedBits) {
+    const n = key.length;
+    return Array.from({ length: outLen }, (_, row) => {
+      let bit = 0;
+      for (let col = 0; col < n; col++) bit ^= seedBits[row - col + n - 1] & key[col];
+      return bit;
+    });
+  }
+
+  return { h2, reconcile, toeplitzHash };
+})();
+
+if (typeof module !== 'undefined') module.exports = Postprocess;
+</script>
+<script>
+// A BB84 protokoll motorja. A futás teljes egészében előre kiszámolódik egy
+// mag alapján; a felület ebből a jegyzőkönyvből fedi fel lépésről lépésre, amit
+// az adott ponton már tudni lehet. Így a visszalépés is determinisztikus.
+const BB84 = (() => {
+  const Q = typeof Quantum !== 'undefined' ? Quantum : require('./quantum.js');
+  const { mulberry32, randBit, randBasis, shuffled } = typeof Random !== 'undefined' ? Random : require('./random.js');
+  const { h2, reconcile, toeplitzHash } = typeof Postprocess !== 'undefined' ? Postprocess : require('./postprocess.js');
+
+  const DEFAULTS = {
+    n: 64,
+    seed: 19,
+    eveEnabled: false,
+    eveRate: 1,
+    sampleFrac: 0.25,
+    threshold: 0.11,
+    safety: 2,
+    ecPasses: 4,
+    verifyBits: 6,
+  };
+
+  const PHASES = ['setup', 'prepare', 'transmit', 'announce', 'sift', 'sample', 'ec', 'pa', 'done'].map((id) => ({ id }));
+
+  function drawEveBases(cfg) {
+    const rng = mulberry32(cfg.seed ^ 0x5e5e5e);
+    return Array.from({ length: cfg.n }, () => {
+      const intercepted = rng() < cfg.eveRate;
+      const basis = randBasis(rng);
+      return intercepted ? basis : '-';
+    });
+  }
+
+  function createPlan(cfg) {
+    const rng = mulberry32(cfg.seed);
+    const draw = (fn) => Array.from({ length: cfg.n }, () => fn(rng));
+    return {
+      aliceBits: draw(randBit),
+      aliceBases: draw(randBasis),
+      bobBases: draw(randBasis),
+      eveBases: drawEveBases(cfg),
+    };
+  }
+
+  // Egy qubit útja: Alice -> (Éva) -> Bob.
+  function sendQubit(i, plan, cfg, rng) {
+    const q = {
+      i,
+      aBit: plan.aliceBits[i],
+      aBasis: plan.aliceBases[i],
+      bobBasis: plan.bobBases[i],
+      eveBasis: cfg.eveEnabled ? plan.eveBases[i] : '-',
+      eveBit: null,
+    };
+    q.sent = Q.prepare(q.aBit, q.aBasis);
+
+    let psi = q.sent;
+    if (q.eveBasis !== '-') {
+      const m = Q.measure(psi, q.eveBasis, rng);
+      q.eveBit = m.outcome;
+      psi = m.state;
+    } else {
+      // Mérés nélkül is fogy egy szám, így Éva egy cellája más qubitre nem hat.
+      rng();
+    }
+    q.afterEve = psi;
+    q.eveGuess = randBit(rng);
+
+    const bob = Q.measure(psi, q.bobBasis, rng);
+    q.bobBit = bob.outcome;
+    q.bobPZero = bob.p0;
+    q.match = q.aBasis === q.bobBasis;
+    q.error = q.match && q.aBit !== q.bobBit;
+    q.role = q.match ? 'key' : 'discard';
+    return q;
+  }
+
+  function runProtocol(plan, cfg) {
+    const rng = mulberry32((cfg.seed ^ 0xa5a5a5) >>> 0);
+    const qubits = Array.from({ length: cfg.n }, (_, i) => sendQubit(i, plan, cfg, rng));
+
+    const sifted = qubits.filter((q) => q.match).map((q) => q.i);
+    const sampleSize = sifted.length
+      ? Math.min(sifted.length, Math.max(1, Math.round(cfg.sampleFrac * sifted.length)))
+      : 0;
+    const sample = shuffled(sifted, rng).slice(0, sampleSize).sort((a, b) => a - b);
+    sample.forEach((i) => { qubits[i].role = 'sample'; });
+    const keyIdx = sifted.filter((i) => qubits[i].role === 'key');
+
+    const countErrors = (list) => list.filter((i) => qubits[i].error).length;
+    const sampleErrors = countErrors(sample);
+    const res = {
+      cfg,
+      qubits,
+      sifted,
+      sample,
+      keyIdx,
+      sampleErrors,
+      qber: sampleSize ? sampleErrors / sampleSize : null,
+      trueQber: sifted.length ? countErrors(sifted) / sifted.length : null,
+      intercepted: qubits.filter((q) => q.eveBit !== null).length,
+      abort: null,
+      ec: null,
+      pa: null,
+    };
+
+    if (!sampleSize) { res.abort = 'no-sifted'; return res; }
+    if (res.qber > cfg.threshold) { res.abort = 'qber'; return res; }
+    if (!keyIdx.length) { res.abort = 'no-key'; return res; }
+
+    const aliceKey = keyIdx.map((i) => qubits[i].aBit);
+    const bobKey = keyIdx.map((i) => qubits[i].bobBit);
+    const eveKey = keyIdx.map((i) => qubits[i].eveBit ?? qubits[i].eveGuess);
+    // Kis mintánál a 0 becslés nem jelent hibátlan kulcsot, ezért a blokkméretet
+    // egy minta alapján még reális felső becsléshez igazítjuk.
+    const ecRate = Math.max(res.qber, 1 / (sampleSize + 1));
+    res.ec = reconcile(aliceKey, bobKey, ecRate, cfg, rng);
+    if (!res.ec.verified) { res.abort = 'ec'; return res; }
+
+    const n = aliceKey.length;
+    const finalLen = Math.floor(n * (1 - h2(res.qber)) - res.ec.leak - cfg.safety);
+    const paBase = {
+      n,
+      leak: res.ec.leak,
+      entropy: n * (1 - h2(res.qber)),
+      safety: cfg.safety,
+      length: Math.max(0, finalLen),
+    };
+    if (finalLen <= 0) { res.pa = paBase; res.abort = 'no-secret'; return res; }
+
+    const seedBits = Array.from({ length: n + finalLen - 1 }, () => randBit(rng));
+    const alice = toeplitzHash(aliceKey, finalLen, seedBits);
+    const bob = toeplitzHash(res.ec.bob, finalLen, seedBits);
+    const eve = toeplitzHash(eveKey, finalLen, seedBits);
+    const agreement = (a, b) => a.filter((bit, i) => bit === b[i]).length / a.length;
+    res.pa = {
+      ...paBase,
+      alice,
+      bob,
+      eve,
+      eveAgreeBefore: agreement(aliceKey, eveKey),
+      eveAgreeAfter: agreement(alice, eve),
+      keysMatch: alice.every((bit, i) => bit === bob[i]),
+    };
+    return res;
+  }
+
+  // A jegyzőkönyvből felépített lépéssor; a felület ezen léptet oda-vissza.
+  function buildTimeline(res) {
+    const n = res.cfg.n;
+    const steps = [{ phase: 'setup', sent: 0 }, { phase: 'prepare', sent: 0 }];
+    for (let i = 0; i < n; i++) steps.push({ phase: 'transmit', i, sent: i + 1 });
+    const later = (phase, extra = {}) => steps.push({ phase, sent: n, ...extra });
+
+    later('announce');
+    later('sift');
+    if (res.abort === 'no-sifted') {
+      later('done');
+      return steps;
+    }
+    later('sample', { kind: 'reveal' });
+    later('sample', { kind: 'decision' });
+    if (res.ec) {
+      res.ec.passes.forEach((pass, p) => later('ec', { pass: p }));
+      later('ec', { kind: 'verify' });
+    }
+    if (res.pa?.alice) later('pa');
+    later('done');
+    return steps;
+  }
+
+  const phaseIndex = (id) => PHASES.findIndex((p) => p.id === id);
+
+  return {
+    DEFAULTS, PHASES, createPlan, drawEveBases, runProtocol, buildTimeline, phaseIndex,
+  };
+})();
+
+if (typeof module !== 'undefined') module.exports = BB84;
+</script>
+<script>
+// A felület szövegei. Mindkét nyelv ugyanazokat a kulcsokat adja; a függvények a
+// futás adataiból állítják össze a mondatokat.
+const I18N = {
+  hu: {
+    decimal: ',',
+    title: 'BB84-szimulátor',
+    tagline: 'Alice és Bob közös titkos kulcsot hoz létre, Éva pedig megpróbálja lehallgatni őket.',
+    course: 'Kvantuminformatikai alkalmazások (BMEVIHIAD00) · 2026 ősz · 4. feladat',
+    qubits: 'Qubitek száma',
+    eveToggle: 'Éva lehallgat',
+    intercepted: 'Elfogott qubitek',
+    animations: 'Animációk',
+    reroll: 'Új véletlen bitek és bázisok',
+    next: 'Következő lépés',
+    back: 'Vissza',
+    nextPhase: 'Következő szakasz',
+    reset: 'Elejére',
+    mSent: 'Elküldött qubit',
+    mMatch: 'Bázis egyezik',
+    mErr: 'Hiba a mintában',
+    mKey: 'Végső kulcs',
+    mQber: (threshold) => `QBER (küszöb ${threshold})`,
+    none: 'nincs',
+    bits: (n) => `${n} bit`,
+    panelQubits: 'Qubitek',
+    quantumChannel: 'kvantumcsatorna',
+    publicChannel: 'nyilvános csatorna: bárki hallhatja, de nem módosíthatja',
+    publicShort: 'nyilvános csatorna',
+    aria: {
+      settings: 'Beállítások',
+      rail: 'A protokoll lépései',
+      bench: 'Alice a kvantumcsatornán küldi a fotonokat Bobnak, alattuk a nyilvános csatorna',
+      transport: 'Léptetés',
+      scroll: 'Qubitenkénti táblázat, vízszintesen görgethető',
+      table: 'A protokoll adatai qubitenként',
+      keys: 'Kulcsok',
+      language: 'Nyelv',
+    },
+    toDark: 'Sötét mód bekapcsolása',
+    toLight: 'Világos mód bekapcsolása',
+    phases: {
+      setup: 'Beállítás', prepare: 'Előkészítés', transmit: 'Átvitel', announce: 'Bázisegyeztetés', sift: 'Szűrés',
+      sample: 'Hibabecslés', ec: 'Hibajavítás', pa: 'Titkosságerősítés', done: 'Kulcs',
+    },
+    aborted: 'Megszakítva',
+    who: { alice: 'Alice', eve: 'Éva', bob: 'Bob' },
+    bit: 'bit',
+    basis: 'bázis',
+    measured: 'mért bit',
+    noMeasure: 'nem mér',
+    packet: { bases: 'bázisok', matches: 'egyezések', sample: 'mintabitek', parities: 'paritások', hash: 'hash-mag' },
+    rows: {
+      aBit: 'Alice bitje', aBasis: 'Alice bázisa', sent: 'Alice fotonja', eveBasis: 'Éva bázisa', eveBit: 'Éva mért bitje',
+      resent: 'Éva fotonja', bobBasis: 'Bob bázisa', bobBit: 'Bob mért bitje', match: 'Bázis egyezik', role: 'Felhasználás',
+      error: 'Eltérés', fixed: 'Javítva',
+    },
+    qubit: 'Qubit',
+    cell: (name, i, value) => `${name}, ${i}. qubit: ${value}`,
+    roleKey: 'K',
+    roleSample: 'M',
+    basisLegend: (b) => `${b} bázis:`,
+    legendEdit: (eve) => `<b>Kattints egy cellára</b> a bit vagy a bázis átállításához${eve ? ' (Évánál – jelentése: nem mér)' : ''}.`,
+    legendRun: 'K: kulcsbit, M: nyilvánosan összevetett mintabit, !: eltérés Alice és Bob között (keretes: csak a szimulátor látja).',
+    keysSift: 'Közös bitek a szűrés után',
+    keysSampled: 'Kulcs a minta eldobása után',
+    keysEc: 'Kulcs a hibajavítás közben',
+    keysFinal: (n) => `Végső kulcs (${n} bit)`,
+    keysNote: ' (az eltéréseket csak a szimulátor látja)',
+    agreement: (p) => `${p} egyezés`,
+    mismatches: (n) => `${n} eltérés`,
+    hits: (n) => `${n} találat`,
+    progress: (i, n) => `${i}. lépés / ${n}`,
+    railLabel: (i, n, name) => `${i}/${n}: ${name}`,
+    narr: {
+      setupTitle: 'Beállítás',
+      setup: (n) => `<p>Alice ${n} véletlen bitet és bázist sorsolt, Bob pedig ${n} mérési bázist. A táblázat celláira kattintva bármelyik bit vagy bázis átállítható.</p>
+        <p>Indítás: <b>Következő lépés</b> vagy a → billentyű.</p>`,
+      prepareTitle: 'Előkészítés',
+      prepare: '<p>Alice minden bitből polarizált fotont készít: |0⟩-ból indul, a bithez X, a × bázishoz H kaput alkalmaz. A két bázis állapotai egyetlen méréssel nem különböztethetők meg biztosan.</p>',
+      qubitTitle: (i) => `${i}. qubit a csatornán`,
+      aliceSends: (bit, basis, ket) => `Alice bitje <b>${bit}</b>, bázisa <b>${basis}</b>, ezért ${ket} állapotú fotont küld.`,
+      eveMeasures: (basis, right, bit, ket) => `Éva <b>${basis}</b> bázisban mér, ${right ? 'ez a jó bázis, az állapot nem változik' : 'ez rossz bázis, az állapot elromlik'}. Eredménye <b>${bit}</b>, és egy ${ket} fotont küld tovább.`,
+      eveSkips: 'Ezt a qubitet Éva nem fogja el.',
+      bobMeasures: (basis, p, bit) => `Bob <b>${basis}</b> bázisban mér: ${p} eséllyel kap 0-t, az eredmény <b>${bit}</b>.`,
+      announceTitle: 'Bázisegyeztetés',
+      announce: (same, p) => `<p>Bob nyilvánosan közli a bázisait, Alice pedig, hogy melyik egyezett. A bitek értéke nem hangzik el. A bázis ${same} qubitnél egyezett, ez ${p} (a várható érték 50%).</p>`,
+      announceEve: '<p>Éva is hallja ezt, de a fotonokat már nem tudja újra megmérni.</p>',
+      siftTitle: 'Szűrés',
+      sift: (n) => `<p>Az eltérő bázisú pozíciókat mindketten eldobják, marad <b>${n} bit</b>. Támadó nélkül ezek pontosan egyeznének.</p>`,
+      sampleTitle: 'Hibabecslés',
+      sample: (n, errors, qber) => `<p>Alice és Bob ${n} véletlen pozíció bitjeit nyilvánosan összevetik, majd eldobják. <b>${errors} eltérés</b> adódott, a becsült QBER ${qber}.</p>`,
+      tooManyTitle: 'Döntés: túl sok a hiba',
+      noKeyTitle: 'Döntés: nincs kulcsanyag',
+      goTitle: 'Döntés: folytathatják',
+      go: (qber, threshold, m, chance) => `<p>A QBER ${qber}, ez nem haladja meg a ${threshold}-os küszöböt. Vigyázat: ${m} mintabitnél a teljes lehallgatás is csak ${chance} eséllyel szakítaná meg a protokollt.</p>`,
+      verifyTitle: 'Hibajavítás: ellenőrzés',
+      verifyFail: '<p>A záró paritásellenőrzés eltérést talált: a javítás után is maradt hiba a kulcsban.</p>',
+      verifyOk: (n, leak) => `<p>${n} véletlen részhalmaz paritása is egyezik, a két kulcs nagy valószínűséggel azonos. A hibajavítás összesen <b>${leak} bitet</b> árult el nyilvánosan.</p>`,
+      passTitle: (i) => `Hibajavítás: ${i}. kör`,
+      pass: (size, fixed) => `<p>Összekevert sorrendben ${size} bites blokkokra bontják a kulcsot, és összevetik a paritásokat. Eltérésnél bináris kereséssel megkeresik a hibás bitet. Ebben a körben ${fixed} javítás történt.</p>`,
+      paTitle: 'Titkosságerősítés',
+      pa: (from, to) => `<p>Toeplitz-hash rövidíti a kulcsot, hogy Éva részleges tudása elvesszen: ${from} bitből <b>${to} bit</b> marad.</p>`,
+      paEve: (before, after) => `<p>Éva sejtése a hash előtt ${before}-ban egyezett Alice kulcsával, utána ${after}-ban. Egyetlen eltérő bemeneti bit a kimenet kb. felét átbillenti, ezért ez már csak véletlen egyezés.</p>`,
+      abortTitle: 'A protokoll megszakadt',
+      hiddenTitle: 'Rejtett eltérés maradt',
+      hidden: '<p>A paritásellenőrzés nem vette észre a maradék hibát, ezért a két végső kulcs eltér. Ez ritka eset.</p>',
+      doneTitle: 'Kész a közös titkos kulcs',
+      done: (n) => `<p>Alice és Bob ${n} bites, azonos kulcsot birtokolnak.</p>`,
+      doneEve: (n) => `<p>Éva ${n} qubitet fogott el, de a mintában a hibaarány a küszöb alatt maradt, ezért a protokoll folytatódott. A titkosságerősítés a teljes QBER-t a támadónak tulajdonítja, és ennek megfelelően rövidít.</p>`,
+    },
+    abort: {
+      qber: (qber, threshold) => `A becsült QBER ${qber}, ami meghaladja a ${threshold}-os küszöböt. Alice és Bob lehallgatásra gyanakszanak, ezért <b>eldobják a kulcsot</b>. Éva így nem jut titokhoz.`,
+      'no-sifted': 'Egyetlen qubitnél sem egyezett a bázis, így nem maradt közös bit.',
+      'no-key': 'A minta az összes közös bitet elhasználta, nem maradt kulcsanyag. Válassz több qubitet.',
+      ec: 'A záró paritásellenőrzés eltérést talált, ezért eldobják a kulcsot.',
+      'no-secret': (n, leak, eve) => `A hibajavítás a kulcs ${n} bitjéből ${leak} bitnyi információt árult el, ezért nem maradt titkos bit.${eve ? '' : ' Ez a rövid kulcs miatt van, nem támadás jele.'}`,
+    },
+  },
+
+  en: {
+    decimal: '.',
+    title: 'BB84 simulator',
+    tagline: 'Alice and Bob build a shared secret key while Eve tries to eavesdrop on them.',
+    course: 'Quantum Information Applications (BMEVIHIAD00) · Autumn 2026 · Task 4',
+    qubits: 'Number of qubits',
+    eveToggle: 'Eve eavesdrops',
+    intercepted: 'Intercepted qubits',
+    animations: 'Animations',
+    reroll: 'New random bits and bases',
+    next: 'Next step',
+    back: 'Back',
+    nextPhase: 'Next section',
+    reset: 'Start over',
+    mSent: 'Qubits sent',
+    mMatch: 'Bases match',
+    mErr: 'Errors in sample',
+    mKey: 'Final key',
+    mQber: (threshold) => `QBER (threshold ${threshold})`,
+    none: 'none',
+    bits: (n) => `${n} bits`,
+    panelQubits: 'Qubits',
+    quantumChannel: 'quantum channel',
+    publicChannel: 'public channel: anyone can listen, but nobody can alter it',
+    publicShort: 'public channel',
+    aria: {
+      settings: 'Settings',
+      rail: 'Protocol steps',
+      bench: 'Alice sends photons to Bob over the quantum channel, with the public channel below them',
+      transport: 'Stepping',
+      scroll: 'Table per qubit, scrolls horizontally',
+      table: 'Protocol data per qubit',
+      keys: 'Keys',
+      language: 'Language',
+    },
+    toDark: 'Switch to dark mode',
+    toLight: 'Switch to light mode',
+    phases: {
+      setup: 'Setup', prepare: 'Preparation', transmit: 'Transmission', announce: 'Basis comparison', sift: 'Sifting',
+      sample: 'Error estimate', ec: 'Error correction', pa: 'Privacy amplification', done: 'Key',
+    },
+    aborted: 'Aborted',
+    who: { alice: 'Alice', eve: 'Eve', bob: 'Bob' },
+    bit: 'bit',
+    basis: 'basis',
+    measured: 'measured',
+    noMeasure: 'not measuring',
+    packet: { bases: 'bases', matches: 'matches', sample: 'sample bits', parities: 'parities', hash: 'hash seed' },
+    rows: {
+      aBit: "Alice's bit", aBasis: "Alice's basis", sent: "Alice's photon", eveBasis: "Eve's basis", eveBit: "Eve's result",
+      resent: "Eve's photon", bobBasis: "Bob's basis", bobBit: "Bob's result", match: 'Bases match', role: 'Used as',
+      error: 'Mismatch', fixed: 'Corrected',
+    },
+    qubit: 'Qubit',
+    cell: (name, i, value) => `${name}, qubit ${i}: ${value}`,
+    roleKey: 'K',
+    roleSample: 'S',
+    basisLegend: (b) => `${b} basis:`,
+    legendEdit: (eve) => `<b>Click a cell</b> to change that bit or basis${eve ? ' (for Eve, – means not measuring)' : ''}.`,
+    legendRun: 'K: key bit, S: publicly compared sample bit, !: Alice and Bob disagree (outlined: only the simulator can see it).',
+    keysSift: 'Shared bits after sifting',
+    keysSampled: 'Key after discarding the sample',
+    keysEc: 'Key during error correction',
+    keysFinal: (n) => `Final key (${n} bits)`,
+    keysNote: ' (only the simulator can see the mismatches)',
+    agreement: (p) => `${p} match`,
+    mismatches: (n) => `${n} mismatches`,
+    hits: (n) => `${n} correct`,
+    progress: (i, n) => `Step ${i} / ${n}`,
+    railLabel: (i, n, name) => `${i}/${n}: ${name}`,
+    narr: {
+      setupTitle: 'Setup',
+      setup: (n) => `<p>Alice drew ${n} random bits and bases, and Bob drew ${n} measurement bases. Click any cell in the table to change that bit or basis.</p>
+        <p>To begin: <b>Next step</b> or the → key.</p>`,
+      prepareTitle: 'Preparation',
+      prepare: '<p>Alice turns each bit into a polarized photon: she starts from |0⟩, applies X for the bit and H for the × basis. A single measurement cannot reliably tell apart states from the two bases.</p>',
+      qubitTitle: (i) => `Qubit ${i} on the channel`,
+      aliceSends: (bit, basis, ket) => `Alice's bit is <b>${bit}</b> and her basis is <b>${basis}</b>, so she sends a photon in state ${ket}.`,
+      eveMeasures: (basis, right, bit, ket) => `Eve measures in the <b>${basis}</b> basis. ${right ? 'That is the right basis, so the state does not change' : 'That is the wrong basis, so the state is disturbed'}. She gets <b>${bit}</b> and sends on a ${ket} photon.`,
+      eveSkips: 'Eve does not intercept this qubit.',
+      bobMeasures: (basis, p, bit) => `Bob measures in the <b>${basis}</b> basis: he gets 0 with probability ${p}, and the result is <b>${bit}</b>.`,
+      announceTitle: 'Basis comparison',
+      announce: (same, p) => `<p>Bob publicly announces his bases and Alice says which ones matched. The bit values stay secret. The bases matched on ${same} qubits, which is ${p} (expected: 50%).</p>`,
+      announceEve: '<p>Eve hears this too, but she can no longer measure the photons again.</p>',
+      siftTitle: 'Sifting',
+      sift: (n) => `<p>Both discard the positions where the bases differ, leaving <b>${n} bits</b>. Without an attacker these would match exactly.</p>`,
+      sampleTitle: 'Error estimate',
+      sample: (n, errors, qber) => `<p>Alice and Bob publicly compare the bits at ${n} random positions, then discard them. They found <b>${errors} mismatches</b>, so the estimated QBER is ${qber}.</p>`,
+      tooManyTitle: 'Decision: too many errors',
+      noKeyTitle: 'Decision: no key material',
+      goTitle: 'Decision: they can continue',
+      go: (qber, threshold, m, chance) => `<p>The QBER is ${qber}, which does not exceed the ${threshold} threshold. Note: with ${m} sample bits, even a full attack would abort the protocol with probability of only ${chance}.</p>`,
+      verifyTitle: 'Error correction: verification',
+      verifyFail: '<p>The final parity check found a mismatch: errors remain in the key after correction.</p>',
+      verifyOk: (n, leak) => `<p>The parities of ${n} random subsets also match, so the two keys are very likely identical. Error correction disclosed <b>${leak} bits</b> publicly in total.</p>`,
+      passTitle: (i) => `Error correction: pass ${i}`,
+      pass: (size, fixed) => `<p>They shuffle the key, split it into blocks of ${size} bits and compare parities. Where they differ, a binary search finds the wrong bit. This pass made ${fixed} corrections.</p>`,
+      paTitle: 'Privacy amplification',
+      pa: (from, to) => `<p>A Toeplitz hash shortens the key so that Eve's partial knowledge is lost: ${from} bits become <b>${to} bits</b>.</p>`,
+      paEve: (before, after) => `<p>Eve's guess matched Alice's key on ${before} of the bits before the hash and on ${after} after it. One differing input bit flips about half of the output, so this is now only chance agreement.</p>`,
+      abortTitle: 'The protocol was aborted',
+      hiddenTitle: 'A hidden mismatch remains',
+      hidden: '<p>The parity check missed the remaining error, so the two final keys differ. This is rare.</p>',
+      doneTitle: 'The shared secret key is ready',
+      done: (n) => `<p>Alice and Bob now hold the same ${n}-bit key.</p>`,
+      doneEve: (n) => `<p>Eve intercepted ${n} qubits, but the error rate in the sample stayed below the threshold, so the protocol continued. Privacy amplification attributes the whole QBER to the attacker and shortens the key accordingly.</p>`,
+    },
+    abort: {
+      qber: (qber, threshold) => `The estimated QBER is ${qber}, which exceeds the ${threshold} threshold. Alice and Bob suspect eavesdropping, so they <b>discard the key</b>. Eve learns no secret.`,
+      'no-sifted': 'The bases did not match on any qubit, so no shared bits remain.',
+      'no-key': 'The sample used up every shared bit, so no key material remains. Choose more qubits.',
+      ec: 'The final parity check found a mismatch, so they discard the key.',
+      'no-secret': (n, leak, eve) => `Error correction disclosed ${leak} bits of information out of the ${n}-bit key, so no secret bits remain.${eve ? '' : ' This is due to the short key, not a sign of an attack.'}`,
+    },
+  },
+};
+
+if (typeof module !== 'undefined') module.exports = I18N;
+</script>
+<script>
+// A felület közös alapjai: az állapot, a nyelv, a formázás és az animációs
+// segédfüggvények. A többi ui/ modul ezekre épül. Minden állapot az `app`
+// objektumban él; a motor előre kiszámolt jegyzőkönyvéből az aktuális lépésig
+// tartó részt jeleníti meg a felület.
+const UI = (() => {
+  const { phaseIndex } = BB84;
+  const $ = (id) => document.getElementById(id);
+
+  const store = {
+    get(key) { try { return localStorage.getItem(key); } catch { return null; } },
+    set(key, value) { try { localStorage.setItem(key, value); } catch { /* csak kényelmi funkció */ } },
+  };
+
+  let lang = store.get('bb84-lang') === 'en' ? 'en' : 'hu';
+  const t = () => I18N[lang];
+  const getLang = () => lang;
+  function setLang(next) {
+    lang = next;
+    store.set('bb84-lang', lang);
+  }
+
+  const pct = (x, digits = 1) => `${(x * 100).toFixed(digits).replace('.', t().decimal)}%`;
+  const label = (basis) => Quantum.BASES[basis].label;
+  const glyph = (psi) => `<svg class="pol" style="transform:rotate(${-Quantum.polarization(psi)}deg)"><use href="#i-pol"/></svg>`;
+
+  const narrowScreen = window.matchMedia('(max-width: 640px)');
+  const motionOn = () => $('in-motion').checked;
+
+  const app = {
+    cfg: { ...BB84.DEFAULTS },
+    plan: null,
+    res: null,
+    steps: [],
+    cursor: 0,
+    shown: 0,
+    flying: false,
+    fadeEve: false,
+    animToken: 0,
+  };
+
+  const step = () => app.steps[app.cursor];
+  const phaseNow = () => phaseIndex(step().phase);
+  const reached = (id) => phaseNow() >= phaseIndex(id);
+  const sampleShown = () => reached('ec') || step().phase === 'sample';
+  const isLast = () => app.cursor === app.steps.length - 1;
+
+  /* ---------- Animáció ---------- */
+
+  const easeInOut = (x) => (x < 0.5 ? 4 * x * x * x : 1 - (-2 * x + 2) ** 3 / 2);
+  const animate = (el, frames, options) => (motionOn()
+    ? el.animate(frames, { easing: 'cubic-bezier(.22, 1, .36, 1)', ...options }) : null);
+  const riseIn = (el, duration = 300) => animate(el, [
+    { opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { duration });
+  const fadeIn = (el, duration = 280) => animate(el, [{ opacity: 0 }, { opacity: 1 }], { duration });
+  const sleep = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });
+
+  // Egy érték lágy átmenete; ha közben új lépés indul (más token), megáll.
+  function tween(from, to, ms, token, onFrame) {
+    return new Promise((resolve) => {
+      const start = performance.now();
+      const frame = () => {
+        if (token !== app.animToken) { resolve(false); return; }
+        const x = Math.min(1, (performance.now() - start) / ms);
+        onFrame(from + (to - from) * easeInOut(x));
+        if (x < 1) requestAnimationFrame(frame);
+        else resolve(true);
+      };
+      requestAnimationFrame(frame);
+    });
+  }
+
+  return {
+    $, store, t, getLang, setLang, pct, label, glyph, narrowScreen, motionOn, app,
+    step, phaseNow, reached, sampleShown, isLast, animate, riseIn, fadeIn, sleep, tween,
+  };
+})();
+</script>
+<script>
+// A protokoll kilenc lépésének folyamatjelzője.
+const Rail = (() => {
+  const { PHASES, phaseIndex } = BB84;
+  const { $, t, app, phaseNow, isLast, motionOn } = UI;
+
+  const phaseName = (id, aborted) => (aborted && id === 'done' ? t().aborted : t().phases[id]);
+
+  function build() {
+    $('rail').innerHTML = PHASES.map((p, i) => `<li><button type="button" data-phase="${p.id}"><b>${i + 1}</b><span></span></button></li>`).join('');
+  }
+
+  function render() {
+    const cur = phaseNow();
+    const lastPhase = phaseIndex(app.steps.at(-1).phase);
+    const available = new Set(app.steps.map((s) => s.phase));
+    const aborted = Boolean(app.res.abort) && isLast();
+    const rail = $('rail');
+    rail.style.setProperty('--done', cur / (PHASES.length - 1));
+    rail.classList.toggle('aborted', aborted);
+    [...rail.children].forEach((li, i) => {
+      const p = PHASES[i];
+      const button = li.firstElementChild;
+      const name = phaseName(p.id, aborted);
+      li.className = [i < cur && available.has(p.id) ? 'past' : '', i === cur ? 'current' : '',
+        aborted && i === lastPhase ? 'failed' : ''].join(' ');
+      button.disabled = !available.has(p.id);
+      button.lastElementChild.textContent = name;
+      button.setAttribute('aria-label', `${i + 1}. ${name}`);
+      if (i === cur) button.setAttribute('aria-current', 'step');
+      else button.removeAttribute('aria-current');
+    });
+    const curName = phaseName(PHASES[cur].id, aborted);
+    $('rail-label').textContent = `${t().railLabel(cur + 1, PHASES.length, curName)} · ${t().progress(app.cursor + 1, app.steps.length)}`;
+    const wrap = rail.parentElement;
+    const li = rail.children[cur];
+    wrap.scrollTo({ left: li.offsetLeft - (wrap.clientWidth - li.offsetWidth) / 2, behavior: motionOn() ? 'smooth' : 'auto' });
+  }
+
+  return { build, render };
+})();
+</script>
+<script>
+// A csatorna ábrája és animációi. Széles nézetben vízszintes, keskenyen
+// függőleges; a fotont és a csomagot mindkét esetben ugyanaz a pályaszám (s)
+// írja le: a foton 180-tól 820-ig, a csomag 95-től 905-ig halad.
+const Bench = (() => {
+  const { $, t, app, step, label, narrowScreen, motionOn, animate, fadeIn, sleep, tween } = UI;
+
+  // A két elrendezés geometriája. A dobozsorok a név, majd a két érték alapvonala.
+  function geometry(narrow, eve) {
+    if (!narrow) {
+      return {
+        viewBox: '0 0 1000 225',
+        boxSize: [170, 120],
+        lines: [18, 34, 68, 98],
+        boxes: { 'alice-box': [10, 20], 'eve-box': [415, 20], 'bob-box': [820, 20] },
+        beam: 'M180 80H820',
+        classical: 'M95 140V185H905V140',
+        tap: 'M500 140V185',
+        beamLabel: [500, 64, 'middle'],
+        publicLabel: [500, 214, null],
+        packet: [-56, 112],
+      };
+    }
+    const bobY = eve ? 308 : 154;
+    return {
+      viewBox: `0 0 300 ${bobY + 86}`,
+      boxSize: [174, 83],
+      lines: [12, 24, 47, 69],
+      boxes: { 'alice-box': [1, 1], 'eve-box': [1, 155], 'bob-box': [1, bobY + 1] },
+      beam: `M88 84V${bobY}`,
+      classical: `M175 42H252V${bobY + 42}H175`,
+      tap: 'M175 196H252',
+      beamLabel: [98, 122, 'start'],
+      publicLabel: [0, 0, `translate(274 ${(bobY + 84) / 2}) rotate(90)`],
+      packet: [-44, 88],
+    };
+  }
+
+  function channelPoint(s) {
+    if (!narrowScreen.matches) return [s, 80];
+    const stops = app.cfg.eveEnabled ? [[180, 84], [415, 154], [585, 238], [820, 308]] : [[180, 84], [820, 154]];
+    const end = stops.findIndex(([at]) => s <= at);
+    const [s1, y1] = stops[Math.max(0, end - 1)];
+    const [s2, y2] = stops[Math.max(1, end)];
+    return [88, y1 + ((y2 - y1) * (s - s1)) / (s2 - s1)];
+  }
+
+  function publicPoint(s) {
+    if (!narrowScreen.matches) return [s, 185];
+    const last = app.cfg.eveEnabled ? 350 : 196;
+    return [252, 42 + ((last - 42) * (s - 95)) / 810];
+  }
+
+  function placeBox(id, [x, y], [width, height], lines) {
+    const box = $(id);
+    box.setAttribute('transform', `translate(${x} ${y})`);
+    box.querySelector('rect').setAttribute('width', width);
+    box.querySelector('rect').setAttribute('height', height);
+    [...box.querySelectorAll('text')].forEach((text, i) => {
+      text.setAttribute('x', lines[0]);
+      text.setAttribute('y', lines[i + 1]);
+    });
+  }
+
+  function layout() {
+    const narrow = narrowScreen.matches;
+    const g = geometry(narrow, app.cfg.eveEnabled);
+    const bench = $('bench');
+    bench.classList.toggle('tall', narrow);
+    bench.classList.toggle('has-eve', app.cfg.eveEnabled);
+    bench.setAttribute('viewBox', g.viewBox);
+    Object.entries(g.boxes).forEach(([id, at]) => placeBox(id, at, g.boxSize, g.lines));
+    $('beam').setAttribute('d', g.beam);
+    $('classical').setAttribute('d', g.classical);
+    $('tap').setAttribute('d', g.tap);
+
+    const [bx, by, anchor] = g.beamLabel;
+    $('beam-label').setAttribute('x', bx);
+    $('beam-label').setAttribute('y', by);
+    $('beam-label').setAttribute('text-anchor', anchor);
+    const [px, py, rotate] = g.publicLabel;
+    const pub = $('public-label');
+    pub.setAttribute('x', px);
+    pub.setAttribute('y', py);
+    if (rotate) pub.setAttribute('transform', rotate);
+    else pub.removeAttribute('transform');
+    pub.textContent = narrow ? t().publicShort : t().publicChannel;
+
+    $('packet-box').setAttribute('x', g.packet[0]);
+    $('packet-box').setAttribute('width', g.packet[1]);
+  }
+
+  function render(showResult = true) {
+    const { res } = app;
+    const s = step();
+    const m = t();
+    layout();
+    $('bench').classList.remove('flying');
+
+    const q = s.i !== undefined ? res.qubits[s.i] : null;
+    const measuring = q && q.eveBit !== null;
+    $('a-bit').textContent = `${m.bit}: ${q ? q.aBit : '–'}`;
+    $('a-basis').textContent = `${m.basis}: ${q ? label(q.aBasis) : '–'}`;
+    $('b-basis').textContent = `${m.basis}: ${q ? label(q.bobBasis) : '–'}`;
+    $('b-bit').textContent = `${m.measured}: ${q && showResult ? q.bobBit : '–'}`;
+    $('e-basis').textContent = q && !measuring ? m.noMeasure : `${m.basis}: ${measuring ? label(q.eveBasis) : '–'}`;
+    $('e-bit').textContent = `${m.measured}: ${measuring && showResult ? q.eveBit : '–'}`;
+    $('photon').setAttribute('visibility', 'hidden');
+    $('packet').setAttribute('visibility', 'hidden');
+  }
+
+  /* ---------- Animáció ---------- */
+
+  function placePhoton(at, psi, tampered) {
+    const photon = $('photon');
+    const [x, y] = channelPoint(at);
+    const path = (from, to) => `M${channelPoint(from).join(' ')}L${channelPoint(to).join(' ')}`;
+    photon.setAttribute('visibility', 'visible');
+    photon.setAttribute('transform', `translate(${x} ${y})`);
+    photon.classList.toggle('tampered', tampered);
+    $('photon-pol').setAttribute('transform', `rotate(${-Quantum.polarization(psi)})`);
+    $('trail-a').setAttribute('d', path(180, tampered ? 415 : at));
+    $('trail-b').setAttribute('d', path(585, tampered ? at : 585));
+  }
+
+  // A foton Alice-tól Bobig repül; Évánál eltűnik a dobozában, és ha mér, piros
+  // fotonként jön ki. Bob eredménye csak az érkezés után jelenik meg.
+  async function animateQubit(q, token) {
+    const pace = 480;
+    const hop = (from, to, psi, tampered, ms) => tween(from, to, ms, token, (s) => placePhoton(s, psi, tampered));
+    const atEve = q.eveBit !== null;
+    render(false);
+    placePhoton(180, q.sent, false);
+    $('bench').classList.add('flying');
+
+    if (app.cfg.eveEnabled) {
+      if (!await hop(180, 415, q.sent, false, pace)) return;
+      $('photon').setAttribute('visibility', 'hidden');
+      if (atEve) {
+        animate($('eve-box').querySelector('rect'), [
+          { strokeWidth: 2 }, { strokeWidth: 7 }, { strokeWidth: 2 }], { duration: 520 });
+        await sleep(pace * 0.45);
+        if (token !== app.animToken) return;
+        $('e-bit').textContent = `${t().measured}: ${q.eveBit}`;
+        fadeIn($('e-bit'));
+      }
+      await sleep(pace * 0.35);
+      if (token !== app.animToken) return;
+      if (!await hop(585, 820, q.afterEve, atEve, pace)) return;
+    } else if (!await hop(180, 820, q.sent, false, pace * 1.6)) return;
+
+    await animate($('photon'), [{ opacity: 1 }, { opacity: 0 }], { duration: 160 })?.finished;
+    if (token !== app.animToken) return;
+    render(true);
+    fadeIn($('b-bit'));
+  }
+
+  async function animatePacket(text, from, to, token) {
+    const packet = $('packet');
+    $('packet-label').textContent = text;
+    packet.setAttribute('visibility', 'visible');
+    await tween(from, to, 720, token, (s) => packet.setAttribute('transform', `translate(${publicPoint(s).join(' ')})`));
+    if (token === app.animToken) packet.setAttribute('visibility', 'hidden');
+  }
+
+  // Ami az adott lépésben a csatornán történik: foton vagy nyilvános üzenet.
+  async function animateStep(token) {
+    const s = step();
+    const packet = t().packet;
+    const toBob = (text) => animatePacket(text, 95, 905, token);
+    if (!motionOn()) return;
+    if (s.phase === 'transmit') await animateQubit(app.res.qubits[s.i], token);
+    if (s.phase === 'announce') {
+      await animatePacket(packet.bases, 905, 95, token);
+      if (token === app.animToken) await toBob(packet.matches);
+    }
+    if (s.phase === 'sample' && s.kind === 'reveal') await toBob(packet.sample);
+    if (s.phase === 'ec' && s.kind !== 'verify') await toBob(packet.parities);
+    if (s.phase === 'pa') await toBob(packet.hash);
+  }
+
+  return { render, animateStep };
+})();
+</script>
+<script>
+// A lépésenkénti magyarázat: az aktuális lépés címe és szövege a futás adataiból.
+const Narration = (() => {
+  const { t, pct, label, app, step } = UI;
+
+  function narrateQubit(q) {
+    const n = t().narr;
+    const parts = [n.aliceSends(q.aBit, label(q.aBasis), Quantum.ketLabel(q.sent))];
+    // Repülés közben még nem derül ki, mit mért Éva és Bob.
+    if (!app.flying) {
+      if (q.eveBit !== null) parts.push(n.eveMeasures(label(q.eveBasis), q.eveBasis === q.aBasis, q.eveBit, Quantum.ketLabel(q.afterEve)));
+      else if (app.cfg.eveEnabled) parts.push(n.eveSkips);
+      parts.push(n.bobMeasures(label(q.bobBasis), pct(q.bobPZero, 0), q.bobBit));
+    }
+    return parts.map((p) => `<p>${p}</p>`).join('');
+  }
+
+  // Teljes lehallgatásnál egy mintabit 1/4 eséllyel hibás; ennyi eséllyel lépi túl
+  // a m bites minta a küszöböt.
+  function catchChance(m, threshold) {
+    let term = 0.75 ** m;
+    let total = 0;
+    for (let k = 0; k <= m; k++) {
+      if (k / m > threshold) total += term;
+      term *= ((m - k) / (k + 1)) * (1 / 3);
+    }
+    return total;
+  }
+
+  function abortText(r) {
+    const text = t().abort[r.abort];
+    if (r.abort === 'qber') return text(pct(r.qber), pct(r.cfg.threshold, 0));
+    if (r.abort === 'no-secret') return text(r.pa.n, r.pa.leak, r.cfg.eveEnabled);
+    return text;
+  }
+
+  const aborted = (title) => ({ title, cls: 'abort', body: `<p>${abortText(app.res)}</p>` });
+
+  function narrate() {
+    const { res, cfg } = app;
+    const n = t().narr;
+    const s = step();
+    const q = s.i !== undefined ? res.qubits[s.i] : null;
+    switch (s.phase) {
+      case 'setup':
+        return { title: n.setupTitle, body: n.setup(cfg.n) };
+      case 'prepare':
+        return { title: n.prepareTitle, body: n.prepare };
+      case 'transmit':
+        return { title: n.qubitTitle(q.i + 1), body: narrateQubit(q) };
+      case 'announce': {
+        const same = res.sifted.length;
+        return { title: n.announceTitle, body: n.announce(same, pct(same / cfg.n, 0)) + (cfg.eveEnabled ? n.announceEve : '') };
+      }
+      case 'sift':
+        return { title: n.siftTitle, body: n.sift(res.sifted.length) };
+      case 'sample':
+        if (s.kind === 'reveal') {
+          return { title: n.sampleTitle, body: n.sample(res.sample.length, res.sampleErrors, pct(res.qber)) };
+        }
+        if (res.abort === 'qber') return aborted(n.tooManyTitle);
+        if (res.abort === 'no-key') return aborted(n.noKeyTitle);
+        return {
+          title: n.goTitle,
+          body: n.go(pct(res.qber), pct(cfg.threshold, 0), res.sample.length, pct(catchChance(res.sample.length, cfg.threshold), 0)),
+        };
+      case 'ec': {
+        if (s.kind === 'verify') {
+          return res.ec.verified
+            ? { title: n.verifyTitle, body: n.verifyOk(res.ec.verifyBits, res.ec.leak) }
+            : { title: n.verifyTitle, cls: 'abort', body: n.verifyFail };
+        }
+        const pass = res.ec.passes[s.pass];
+        return { title: n.passTitle(s.pass + 1), body: n.pass(pass.size, pass.fixed.length) };
+      }
+      case 'pa':
+        return {
+          title: n.paTitle,
+          body: n.pa(res.pa.n, res.pa.length) + (cfg.eveEnabled ? n.paEve(pct(res.pa.eveAgreeBefore, 0), pct(res.pa.eveAgreeAfter, 0)) : ''),
+        };
+      default:
+        if (res.abort) return aborted(n.abortTitle);
+        if (!res.pa.keysMatch) return { title: n.hiddenTitle, cls: 'abort', body: n.hidden };
+        return {
+          title: n.doneTitle,
+          cls: 'success',
+          body: n.done(res.pa.length) + (res.intercepted ? n.doneEve(res.intercepted) : ''),
+        };
+    }
+  }
+
+  return { narrate };
+})();
+</script>
+<script>
+// A qubitenkénti táblázat. Az első lépésnél a bitek és bázisok cellái gombok,
+// ezekkel adható meg a futás.
+const Ledger = (() => {
+  const { $, t, app, step, reached, sampleShown, label, glyph, motionOn } = UI;
+
+  // A szakaszba lépéskor beúszó táblázatsorok.
+  const REVEAL = { prepare: ['sent'], announce: ['match'], sample: ['role', 'error'], ec: ['fixed'] };
+
+  // A hibajavítás eddigi köreiben javított kulcspozíciók.
+  function fixedSoFar() {
+    const { ec } = app.res;
+    const s = step();
+    if (!ec || !reached('ec')) return new Set();
+    const upto = s.phase === 'ec' && s.kind !== 'verify' ? s.pass + 1 : ec.passes.length;
+    return new Set(ec.passes.slice(0, upto).flatMap((p) => p.fixed));
+  }
+
+  function cellFor(row, q) {
+    const s = step();
+    const moved = q.i < s.sent - (app.flying ? 1 : 0);
+    const dim = reached('sift') && !q.match ? 'dim' : '';
+    switch (row) {
+      case 'aBit': return { text: q.aBit, cls: dim };
+      case 'aBasis': return { text: label(q.aBasis), cls: dim };
+      case 'sent': return reached('prepare') ? { html: glyph(q.sent), cls: dim } : {};
+      case 'eveBasis': {
+        const basis = app.plan.eveBases[q.i];
+        return { text: basis === '-' ? '–' : label(basis), cls: dim };
+      }
+      case 'eveBit': return moved && q.eveBit !== null ? { text: q.eveBit, cls: dim } : {};
+      case 'resent': return moved && q.eveBit !== null ? { html: glyph(q.afterEve), cls: dim } : {};
+      case 'bobBasis': return { text: label(q.bobBasis), cls: dim };
+      case 'bobBit': return moved ? { text: q.bobBit, cls: dim } : {};
+      case 'match':
+        if (!reached('announce')) return {};
+        return q.match ? { text: '=', cls: 'yes' } : { text: '≠', cls: 'no' };
+      case 'role':
+        if (!sampleShown() || !q.match) return {};
+        return q.role === 'sample' ? { text: t().roleSample, cls: 'sample' } : { text: t().roleKey, cls: 'yes' };
+      case 'error':
+        if (!sampleShown() || !q.error) return {};
+        return { text: '!', cls: q.role === 'sample' ? 'err' : 'err-hidden' };
+      case 'fixed': {
+        const k = app.res.keyIdx.indexOf(q.i);
+        return k >= 0 && fixedSoFar().has(k) ? { text: '✓', cls: 'fixed' } : {};
+      }
+      default: return {};
+    }
+  }
+
+  // A megjelenő sorok: kulcs, felirat, Éva-sor-e, szerkeszthető-e.
+  function rowsFor() {
+    const names = t().rows;
+    const eve = app.cfg.eveEnabled ? 'who-e' : null;
+    const rows = [
+      ['aBit', '', true], ['aBasis', '', true], ['sent', '', false],
+      ...(eve ? [['eveBasis', eve, true], ['eveBit', eve, false], ['resent', eve, false]] : []),
+      ['bobBasis', '', true], ['bobBit', '', false], ['match', '', false], ['role', '', false], ['error', '', false],
+      ...(reached('ec') && app.res.ec ? [['fixed', '', false]] : []),
+    ];
+    return rows.map(([key, who, canEdit]) => [key, names[key], who, canEdit]);
+  }
+
+  function render(entering) {
+    const { res, cfg } = app;
+    const editable = app.cursor === 0;
+    const current = step().i;
+    const head = `<thead><tr><th class="row" scope="col">${t().qubit}</th>${res.qubits
+      .map((q) => `<th scope="col" class="${q.i === current ? 'cur' : ''}">${q.i + 1}</th>`).join('')}</tr></thead>`;
+    const body = rowsFor().map(([key, name, who, canEdit]) => {
+      const cells = res.qubits.map((q) => {
+        const c = cellFor(key, q);
+        const cls = [who, c.cls ?? '', q.i === current ? 'cur' : '', canEdit && editable ? 'edit' : ''].join(' ');
+        const content = c.html ?? c.text ?? '';
+        const inner = canEdit && editable
+          ? `<button type="button" data-row="${key}" data-i="${q.i}" aria-label="${t().cell(name, q.i + 1, content)}">${content}</button>`
+          : content;
+        return `<td class="${cls}" style="--i:${q.i}">${inner}</td>`;
+      }).join('');
+      const fresh = (entering && REVEAL[step().phase]?.includes(key)) || (app.fadeEve && who === 'who-e');
+      return `<tr class="${fresh ? 'reveal' : ''}"><th class="row ${who}" scope="row">${name}</th>${cells}</tr>`;
+    }).join('');
+    $('ledger').innerHTML = head + body;
+    $('ledger').classList.toggle('sifting', entering && step().phase === 'sift');
+    app.fadeEve = false;
+
+    const encoding = `<b>${t().basisLegend('+')}</b> 0 = ${glyph(Quantum.prepare(0, 'Z'))}, 1 = ${glyph(Quantum.prepare(1, 'Z'))}. <b>${t().basisLegend('×')}</b> 0 = ${glyph(Quantum.prepare(0, 'X'))}, 1 = ${glyph(Quantum.prepare(1, 'X'))}.`;
+    $('legend').innerHTML = editable ? `${t().legendEdit(cfg.eveEnabled)} ${encoding}` : `${encoding} ${t().legendRun}`;
+
+    if (current !== undefined) {
+      const wrap = $('ledger-scroll');
+      const cell = $('ledger').querySelector('thead th.cur');
+      wrap.scrollTo({ left: Math.max(0, cell.offsetLeft - wrap.clientWidth / 2), behavior: motionOn() ? 'smooth' : 'auto' });
+    }
+  }
+
+  return { render, fixedSoFar };
+})();
+</script>
+<script>
+// Az eredmények: a mérőszámok sora és a kulcsok panelje.
+const Results = (() => {
+  const { $, t, pct, app, step, reached, sampleShown, isLast, riseIn } = UI;
+
+  /* ---------- Mérőszámok ---------- */
+
+  function setMetric(id, value, cls = '') {
+    const box = $(id);
+    const dd = box.querySelector('dd');
+    box.className = `metric ${cls}`;
+    if (dd.textContent === String(value)) return;
+    dd.textContent = value;
+    riseIn(dd, 240);
+  }
+
+  function renderMetrics() {
+    const { res, cfg } = app;
+    const s = step();
+    const hasQber = sampleShown() && res.qber !== null;
+    const over = hasQber && res.qber > cfg.threshold;
+    const finalLen = (s.phase === 'pa' || s.phase === 'done') && res.pa?.alice ? res.pa.length : null;
+    const failed = isLast() && res.abort;
+    const scale = 0.5;
+    setMetric('m-sent', `${s.sent - (app.flying ? 1 : 0)} / ${cfg.n}`);
+    setMetric('m-match', reached('announce') ? res.sifted.length : '–');
+    setMetric('m-err', hasQber ? `${res.sampleErrors} / ${res.sample.length}` : '–', over ? 'bad' : '');
+    setMetric('m-qber', hasQber ? pct(res.qber) : '–', over ? 'bad' : '');
+    setMetric('m-key', finalLen ? t().bits(finalLen) : (failed ? t().none : '–'), finalLen ? 'good' : (failed ? 'bad' : ''));
+    $('qber-label').textContent = t().mQber(pct(cfg.threshold, 0));
+    $('meter').classList.toggle('over', over);
+    $('meter-fill').style.transform = `scaleX(${hasQber ? Math.min(1, res.qber / scale) : 0})`;
+    $('meter-mark').style.left = `${(cfg.threshold / scale) * 100}%`;
+  }
+
+  /* ---------- Kulcsok ---------- */
+
+  function bitsHtml(bits, reference) {
+    return bits.map((b, i) => {
+      if (b === null) return '<span class="unk">·</span>';
+      return reference && b !== reference[i] ? `<span class="diff">${b}</span>` : `${b}`;
+    }).join('');
+  }
+
+  function keyRow(cls, name, bits, reference, note = '') {
+    return `<div class="key-row ${cls}"><b>${name}</b><div class="key-bits">${bitsHtml(bits, reference)}</div><span class="key-note">${note}</span></div>`;
+  }
+
+  // A végső kulcs, vagy előtte az eddigi közös bitek; az eltéréseket kiemeli.
+  function renderKeys(entering) {
+    const { res, cfg } = app;
+    const s = step();
+    const box = $('keys');
+    if (!reached('sift')) {
+      box.hidden = true;
+      return;
+    }
+    if (box.hidden || entering) riseIn(box, 380);
+    box.hidden = false;
+    const q = res.qubits;
+    const final = (s.phase === 'pa' || s.phase === 'done') && res.pa?.alice;
+    const inKeyStage = sampleShown() && res.keyIdx.length > 0;
+    const idx = inKeyStage ? res.keyIdx : res.sifted;
+    const aBits = idx.map((i) => q[i].aBit);
+    const m = t();
+    let title = inKeyStage ? m.keysSampled : m.keysSift;
+    if (reached('ec') && res.ec) title = m.keysEc;
+    let rows;
+
+    if (final) {
+      title = m.keysFinal(res.pa.length);
+      rows = [keyRow('a', m.who.alice, res.pa.alice), keyRow('b', m.who.bob, res.pa.bob, res.pa.alice)];
+      if (cfg.eveEnabled) rows.push(keyRow('e', m.who.eve, res.pa.eve, res.pa.alice, m.agreement(pct(res.pa.eveAgreeAfter, 0))));
+    } else {
+      const fixed = Ledger.fixedSoFar();
+      const bBits = idx.map((i, k) => (inKeyStage && fixed.has(k) ? q[i].bobBit ^ 1 : q[i].bobBit));
+      const errors = bBits.filter((b, i) => b !== aBits[i]).length;
+      rows = [keyRow('a', m.who.alice, aBits, null, m.bits(idx.length)),
+        keyRow('b', m.who.bob, bBits, aBits, m.mismatches(errors))];
+      if (cfg.eveEnabled) {
+        const eBits = idx.map((i) => q[i].eveBit);
+        const known = eBits.filter((b, i) => b === aBits[i]).length;
+        rows.push(keyRow('e', m.who.eve, eBits, aBits, m.hits(known)));
+      }
+    }
+    const note = final ? '' : m.keysNote;
+    box.classList.toggle('done', Boolean(final) && s.phase === 'done');
+    box.innerHTML = `<h2 class="panel-head">${title}${note}</h2><div class="panel-body">${rows.join('')}</div>`;
+  }
+
+  return { renderMetrics, renderKeys };
+})();
+</script>
+<script>
+// A felület összefogása: a futás újraszámolása, a teljes kirajzolás, a léptetés,
+// a nyelv és a téma, valamint az eseménykezelők.
+(() => {
+  const { $, t, getLang, setLang, store, narrowScreen, motionOn, app, step, isLast, riseIn, fadeIn } = UI;
+
+  function recompute() {
+    app.res = BB84.runProtocol(app.plan, app.cfg);
+    app.steps = BB84.buildTimeline(app.res);
+    app.cursor = 0;
+    app.shown = 0;
+    app.flying = false;
+    app.animToken++;
+    render();
+  }
+
+  function replan() {
+    app.plan = BB84.createPlan(app.cfg);
+    recompute();
+  }
+
+  function syncControls() {
+    const { cfg } = app;
+    $('in-n').value = cfg.n;
+    $('in-eve').checked = cfg.eveEnabled;
+    $('in-rate').value = cfg.eveRate;
+    $('rate-field').hidden = !cfg.eveEnabled;
+  }
+
+  // A táblázat celláinak kattintása, csak az első lépésnél.
+  function toggleCell(row, i) {
+    const { plan } = app;
+    const flip = (basis) => (basis === 'Z' ? 'X' : 'Z');
+    if (row === 'aBit') plan.aliceBits[i] ^= 1;
+    if (row === 'aBasis') plan.aliceBases[i] = flip(plan.aliceBases[i]);
+    if (row === 'bobBasis') plan.bobBases[i] = flip(plan.bobBases[i]);
+    if (row === 'eveBasis') {
+      const order = ['-', 'Z', 'X'];
+      plan.eveBases[i] = order[(order.indexOf(plan.eveBases[i]) + 1) % order.length];
+    }
+    recompute();
+    document.querySelector(`[data-row="${row}"][data-i="${i}"]`).focus();
+  }
+
+  /* ---------- Kirajzolás ---------- */
+
+  function renderTransport() {
+    const atStart = app.cursor === 0;
+    const atEnd = isLast();
+    const focused = document.activeElement;
+    $('btn-reset').disabled = atStart;
+    $('btn-back').disabled = atStart;
+    $('btn-next').disabled = atEnd;
+    $('btn-phase').disabled = atEnd;
+    if (focused.disabled) (atEnd ? $('btn-back') : $('btn-next')).focus();
+    $('progress').textContent = t().progress(app.cursor + 1, app.steps.length);
+  }
+
+  function renderNarration() {
+    const n = Narration.narrate();
+    const box = $('narration');
+    const changed = $('narr-title').textContent !== n.title;
+    box.className = `narration ${n.cls ?? ''}`;
+    $('narr-title').textContent = n.title;
+    if (app.narrBody !== n.body) {
+      app.narrBody = n.body;
+      $('narr-body').innerHTML = n.body;
+    }
+    box.setAttribute('aria-busy', app.flying);
+    if (changed) riseIn(box);
+  }
+
+  function render() {
+    const previous = app.steps[app.shown];
+    const entering = app.cursor > app.shown && previous.phase !== step().phase;
+    renderNarration();
+    Rail.render();
+    Bench.render();
+    Results.renderMetrics();
+    Ledger.render(entering);
+    Results.renderKeys(entering);
+    renderTransport();
+    app.shown = app.cursor;
+  }
+
+  // Megszakít minden futó animációt, és a lépés végleges állapotát rajzolja ki.
+  function settle() {
+    app.animToken++;
+    app.flying = false;
+    render();
+  }
+
+  /* ---------- Léptetés ---------- */
+
+  async function goNext() {
+    if (isLast()) return;
+    app.cursor++;
+    // Repülés közben még nem látszik, mit mért Éva és Bob.
+    app.flying = step().phase === 'transmit' && motionOn();
+    render();
+    const token = ++app.animToken;
+    await Bench.animateStep(token);
+    if (app.flying && token === app.animToken) {
+      app.flying = false;
+      render();
+      fadeIn($('narr-body'));
+    }
+  }
+
+  function goTo(index) {
+    app.cursor = Math.max(0, Math.min(app.steps.length - 1, index));
+    settle();
+  }
+
+  function goBack() {
+    if (app.cursor) goTo(app.cursor - 1);
+  }
+
+  function nextPhase() {
+    const { phase } = step();
+    const offset = app.steps.slice(app.cursor).findIndex((s) => s.phase !== phase);
+    if (offset > 0) goTo(app.cursor + offset);
+  }
+
+  /* ---------- Nyelv és téma ---------- */
+
+  function applyLanguage() {
+    const m = t();
+    document.documentElement.lang = getLang();
+    document.title = m.title;
+    document.querySelectorAll('[data-t]').forEach((el) => { el.textContent = m[el.dataset.t]; });
+    document.querySelectorAll('[data-t-aria]').forEach((el) => { el.setAttribute('aria-label', m.aria[el.dataset.tAria]); });
+    document.querySelectorAll('[data-lang]').forEach((el) => { el.setAttribute('aria-pressed', el.dataset.lang === getLang()); });
+    $('name-alice').textContent = m.who.alice;
+    $('name-eve').textContent = m.who.eve;
+    $('name-bob').textContent = m.who.bob;
+    syncTheme();
+  }
+
+  function syncTheme() {
+    const dark = document.documentElement.dataset.theme === 'dark';
+    const toggle = $('btn-theme');
+    toggle.setAttribute('aria-pressed', dark);
+    toggle.setAttribute('aria-label', dark ? t().toLight : t().toDark);
+    toggle.title = toggle.getAttribute('aria-label');
+  }
+
+  /* ---------- Események ---------- */
+
+  function bindSettings() {
+    document.querySelectorAll('[data-lang]').forEach((button) => {
+      button.addEventListener('click', () => {
+        setLang(button.dataset.lang);
+        applyLanguage();
+        settle();
+      });
+    });
+    $('btn-theme').addEventListener('click', () => {
+      const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+      document.documentElement.dataset.theme = next;
+      store.set('bb84-theme', next);
+      syncTheme();
+    });
+    narrowScreen.addEventListener('change', settle);
+
+    $('in-n').addEventListener('change', (e) => {
+      app.cfg.n = Number(e.target.value);
+      replan();
+    });
+    $('in-eve').addEventListener('change', (e) => {
+      app.cfg.eveEnabled = e.target.checked;
+      app.fadeEve = e.target.checked;
+      syncControls();
+      if (e.target.checked) riseIn($('rate-field'));
+      recompute();
+    });
+    $('in-rate').addEventListener('change', (e) => {
+      app.cfg.eveRate = Number(e.target.value);
+      app.plan.eveBases = BB84.drawEveBases(app.cfg);
+      recompute();
+    });
+    $('in-motion').addEventListener('change', (e) => {
+      document.documentElement.classList.toggle('no-motion', !e.target.checked);
+      settle();
+    });
+    $('btn-reroll').addEventListener('click', () => {
+      app.cfg.seed = crypto.getRandomValues(new Uint32Array(1))[0];
+      replan();
+    });
+  }
+
+  function bindStepping() {
+    $('ledger').addEventListener('click', (e) => {
+      const cell = e.target.closest('button[data-row]');
+      if (cell) toggleCell(cell.dataset.row, Number(cell.dataset.i));
+    });
+    $('rail').addEventListener('click', (e) => {
+      const button = e.target.closest('[data-phase]');
+      if (button) goTo(app.steps.findIndex((s) => s.phase === button.dataset.phase));
+    });
+
+    $('btn-next').addEventListener('click', goNext);
+    $('btn-back').addEventListener('click', goBack);
+    $('btn-reset').addEventListener('click', () => goTo(0));
+    $('btn-phase').addEventListener('click', nextPhase);
+
+    const keys = {
+      ArrowRight: goNext,
+      ArrowLeft: goBack,
+      Home: () => goTo(0),
+      End: () => goTo(app.steps.length - 1),
+    };
+    document.addEventListener('keydown', (e) => {
+      if (e.altKey || e.ctrlKey || e.metaKey || e.target.closest?.('select, #ledger-scroll:focus')) return;
+      if (keys[e.key]) { e.preventDefault(); keys[e.key](); }
+    });
+  }
+
+  Rail.build();
+  applyLanguage();
+  syncControls();
+  bindSettings();
+  bindStepping();
+  replan();
+})();
+</script>
+</body>
+</html>
