@@ -1,6 +1,6 @@
 # BB84-szimulátor
 
-A BB84 kvantumkulcs-szétosztó protokoll lépésenként követhető, grafikus szimulátora a Kvantuminformatikai alkalmazások (BMEVIHIAD00, 2026 ősz) féléves feladatának 4. részfeladatához.
+A BB84 kvantumkulcs-szétosztó protokoll lépésenként követhető, grafikus szimulátora.
 
 ## Futtatás
 
